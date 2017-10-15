@@ -206,7 +206,7 @@ function run_raid_bot(la_raids, output_channels, raids_lmi) {
                                             console.log("DEBUG: "+ user_raw_raidlevels+" "+level+" "+result.username);
 
                                             //Check if user has that raid level listed
-                                            if(user_array_raidlevels.indexOf(level) > 0) {
+                                            if(user_array_raidlevels.indexOf(level) > -1) {
                                                 console.log(result.username+" has "+level+" in "+user_raw_raidlevels);
 
                                                 //Check distance
