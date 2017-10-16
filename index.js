@@ -1364,6 +1364,131 @@ bot.on('message', (message) => {
 
 
 
+    if(message.content.startsWith(CONFIG.PREFIX+"validate")) {
+
+        var deadMemberNames = [];
+        var deadMemberIDS = [];
+
+        var guild = bot.guilds.get(CONFIG.GUILD);
+
+        let args = message.content.split(/\s+/g).slice(1);
+        let TABLE = args[0];
+        //let SEARCH_ROLES = message.guild.roles.find("name", args[1]);
+        let SERVER_ADMIN = message.guild.roles.find("name", "Admin");
+        let BOT_MASTER = message.guild.roles.find("name", "bot master");
+        let INSTINCT = guild.roles.find("name", "Instinct");
+        let MYSTIC = guild.roles.find("name", "Mystic");
+        let VALOR = guild.roles.find("name", "Valor");
+
+        if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
+          if(TABLE == "change") {
+              console.log("VALIDATE CHANGE");
+              mysql.allChangeUsers(function(err, result) {
+                result.forEach(function(resultuser) {
+                      bot.fetchUser(resultuser.userid).then(function(user) {
+                          guild.fetchMember(user).then(function(guildUser) {
+
+                              var hasNeededRole = false;
+                              var memberRoles = guildUser.roles;
+                              memberRoles.forEach(function(role) {
+                                if(role.name == "Instinct") { hasNeededRole = true; return; }
+                                if(role.name == "Mystic") { hasNeededRole = true; return; }
+                                if(role.name == "Valor") { hasNeededRole = true; return; }
+                              });
+
+                              if(!hasNeededRole) { 
+                                console.log("No Team Role: "+resultuser.username);
+                                mysql.removeDeadChangeUser(resultuser.userid, function(err, result) {
+                                  if(err) console.log(err);
+                                  else {
+                                      var msg = "Removed changeStorage entry for " + resultuser.username;
+                                      console.log(msg);
+                                      message.channel.send(msg);
+                                  }                                
+                                });
+                              }
+
+                          }).catch(function(err) {
+                              //console.log(err);
+                              //console.log(err.message);
+                              if(err.message === 'Unknown Member') {
+                                  console.log("Dead Member: "+resultuser.username);
+                                  mysql.removeDeadChangeUser(resultuser.userid, function(err, result) {
+                                    if(err) console.log(err);
+                                    else {
+                                      var msg = "Removed changeStorage entry for " + resultuser.username;
+                                      console.log(msg);
+                                      message.channel.send(msg);
+                                    }
+                                  });
+                              }
+                          });
+                      });
+                  });  
+              });
+          }
+          else if(TABLE == "range") {
+              console.log("VALIDATE RANGE");
+              mysql.allRangeUsers(function(err, result) {
+                 result.forEach(function(resultuser) {
+                      bot.fetchUser(resultuser.userid).then(function(user) {
+                          guild.fetchMember(user).then(function(guildUser) {
+
+                              var hasNeededRole = false;
+                              var memberRoles = guildUser.roles;
+                              memberRoles.forEach(function(role) {
+                                if(role.name == "Instinct") { hasNeededRole = true; return; }
+                                if(role.name == "Mystic") { hasNeededRole = true; return; }
+                                if(role.name == "Valor") { hasNeededRole = true; return; }
+                              });
+
+                              if(!hasNeededRole) {
+                                  console.log("No Team Role: "+resultuser.username);
+                                  mysql.removeDeadRangeUser(resultuser.userid, function(err, result) {
+                                    if(err) console.log(err);
+                                    else {
+                                      var msg = "Removed range entry for " + resultuser.username;
+                                      console.log(msg);
+                                      message.channel.send(msg);
+                                    }
+                                  });
+                              }
+
+                          }).catch(function(err) {
+                              //console.log(err);
+                              //console.log(err.message);
+                              if(err.message === 'Unknown Member') {
+                                  console.log("Dead Member: "+resultuser.username);
+                                  mysql.removeDeadRangeUser(resultuser.userid, function(err, result) {
+                                    if(err) console.log(err);
+                                    else {
+                                        var msg = "Removed range entry for " + resultuser.username;
+                                        console.log(msg);
+                                        message.channel.send(msg);
+                                    }
+                                  });
+                              }
+                          });
+                      });
+                  });  
+              });
+          }
+          else {
+            message.channel.send("Unknown validation.");
+          }
+        }
+        else {
+          message.channel.send("ADMIN ONLY COMMAND!");
+        }
+
+        // mysql.usageDistanceCountRange(5, function(err, result) {
+
+
+    }
+
+
+
+
 
 
     //.iam handles

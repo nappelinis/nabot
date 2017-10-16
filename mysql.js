@@ -130,6 +130,37 @@ exports.deleteRange = function(userid, callback) {
 
 
 
+//Get all range users
+exports.allRangeUsers = function(callback) {
+    conn.query("SELECT * FROM `range`", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Get all change users
+exports.allChangeUsers = function(callback) {
+    conn.query("SELECT * FROM `changeStorage`", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+
+exports.removeDeadChangeUser = function(userid, callback) {
+    conn.query("DELETE FROM `changeStorage` WHERE `userid` = ?", [userid], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+exports.removeDeadRangeUser = function(userid, callback) {
+    conn.query("DELETE FROM `range` WHERE `userid` = ?", [userid], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
 
 ////////////////
 //Ditto Stats //
