@@ -161,6 +161,66 @@ exports.removeDeadRangeUser = function(userid, callback) {
     });
 }
 
+//Mentions Queries
+exports.addMentionsEntry = function(pid, pname, type, mention, callback) {
+    var dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    conn.query("INSERT INTO `mentions` (pid, pname, type, mention, created, updated) VALUES (?,?,?,?,?,?)", [pid, pname, type, mention, dateNow, dateNow], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Get mention by name
+exports.getMentionByName = function(pname, callback) {
+    conn.query("SELECT * FROM `mentions` WHERE pname=?", [pname], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    }); 
+}
+
+
+//Pokemon List Queries
+//Get all PokemonList entries
+exports.getPokemonAllEntries = function(callback) {
+    conn.query("SELECT * FROM `pokemonlist`", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Get Active Pokemon Entries
+exports.getPokemonActiveEntries = function(callback) {
+    conn.query("SELECT * FROM `pokemonlist` WHERE active = 1", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Get Pokemon by Name
+exports.getPokemonByName = function(pname, callback) {
+    conn.query("SELECT * FROM `pokemonlist` WHERE name=?", [pname], function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Get Pokemon by ID
+exports.getPokemonByID = function(pid, callback) {
+    conn.query("SELECT * FROM `pokemonlist` WHERE pid=?", [pid], function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+
+exports.getPokemonGeneration = function(genID, callback) {
+    conn.query("SELECT * FROM `pokemonlist` WHERE gen=?", [genID], function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+
 
 ////////////////
 //Ditto Stats //

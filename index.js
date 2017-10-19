@@ -1128,7 +1128,7 @@ bot.on('message', (message) => {
                             userData.push("**Pokemon:**"+(result[0].pokemon ? " ON" : " OFF"));
                             userData.push("**Starters:**"+(result[0].starters ? " ON" : " OFF"));
                             userData.push("**Raids:**"+(result[0].raids ? " ON" : " OFF"));
-                            userData.push("**Raid Levels:**"+result[0].raid_levels + notImplemented);
+                            userData.push("**Raid Levels:** "+result[0].raid_levels + notImplemented);
                             userData.push("**Mentions:**"+(result[0].mentions ? " ON" : " OFF"));
                             message.author.send({embed: richMsg("", userData.join('\n'), CONFIG.GOOD)});
                         }
@@ -1487,8 +1487,93 @@ bot.on('message', (message) => {
     }
 
 
+    //Gamepress display
+    if(message.content.startsWith(CONFIG.PREFIX+"gp")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var baseURL = "https://pokemongo.gamepress.gg/pokemon/";
+      if(isNaN(args[0])) { //String
+        //Check if exists
+        //Look up ID of pokemon
+        mysql.getPokemonByName(args[0], function(err, result) {
+          if(err) console.log(err);
+          else {
+            message.channel.send(baseURL+result[0].pid);
+          }
+        });
+      }
+      else {
+        //Send url with ID
+        message.channel.send(baseURL+args[0]);
+      }
+    }
 
 
+    //Generation display
+    if(message.content.startsWith(CONFIG.PREFIX+"gen")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      if(isNaN(args[0])) {
+        message.channel.send("Generation argument needs to be numerical.");
+      }
+      else {
+        if(args[0] > 7) {
+          message.channel.send("Max generation 7.");
+        }
+        else {
+          mysql.getPokemonGeneration(args[0], function(err, result) {
+            if(err) console.log(err);
+            else {
+              var generationString = "";
+              result.forEach(function(pokemonEntry) {
+                generationString += pokemonEntry.name+", ";
+              });
+              message.channel.send("**Generation "+args[0]+":** "+generationString);
+            }
+          });
+        }
+      }
+    }
+
+
+    //Mention controller
+    if(message.content.startsWith(CONFIG.PREFIX+"men")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var action = args.slice(1);
+
+      let SERVER_ADMIN = message.guild.roles.find("name", "Admin");
+      let BOT_MASTER = message.guild.roles.find("name", "bot master");
+
+      if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
+
+        switch(action) {
+          case "add":
+
+              break;
+          case "rem":
+
+              break;
+          case "show":
+              if(isNaN(args[0])) {
+                mysql.getMentionByName(args[0], function(err, result) {
+                  if(err) console.log(err);
+                  else {
+
+                  }
+                });
+              }
+              else {
+                message.channel.send("Argument 2 needs to be a name.");
+              }
+              break;
+        }
+      }
+      else {
+        message.channel.send("ADMIN ONLY COMMAND");
+      }
+
+
+
+
+    }
 
 
     //.iam handles
