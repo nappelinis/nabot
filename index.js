@@ -1535,44 +1535,86 @@ bot.on('message', (message) => {
 
 
     //Mention controller
-    if(message.content.startsWith(CONFIG.PREFIX+"men")) {
+    if(message.content.startsWith(CONFIG.PREFIX+"mention")) {
       var args = message.content.split(/\s+/g).slice(1);
-      var action = args.slice(1);
+      var action = args.shift(1);
 
       let SERVER_ADMIN = message.guild.roles.find("name", "Admin");
       let BOT_MASTER = message.guild.roles.find("name", "bot master");
 
       if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
 
-        switch(action) {
-          case "add":
+        //Check pokemon name
+        var name = args.shift(1);
+        if(isNaN(name)) { //Pokemon name is string
+          mysql.getPokemonByName(name, function(err, name_result) {
+            if(err) console.log(err);
+            else {
+              switch(action) {
+                  case "add": // ?men add name type mention
+                        if(args.length != 2) {
+                          console.log("Invalid # remaining args");
+                          message.channel.send({embed: richMsg("", "Invalid # remaining args", CONFIG.ERROR)});
+                        }
+                        else {
+                          var type = args.shift(1);
+                          var mention = args.shift(1);
 
-              break;
-          case "rem":
+                          mysql.getMentionByName(name, function(err, mention_result) {
+                            if(err) console.log(err);
+                            else {
+                              if(mention_result.length == 0) {
+                                mysql.addMentionsEntry(name_result[0].pid, name_result[0].name, type, mention, function(err, add_result) {
+                                  if(err) console.log(err);
+                                  else { 
+                                    message.channel.send({embed: richMsg("", "Mention for "+name+" added. ("+mention+")", CONFIG.GOOD)});
+                                  }
+                                });
+                              }
+                              else {
+                                message.channel.send({embed: richMsg("", "Mention for "+name+" already exists: "+mention_result[0].mention, CONFIG.INFO)});
+                              }
+                            }
+                          });
+                        }
+                      break;
+                  case "remove":
+                        mysql.getMentionByName(name, function(err, mention_result) {
+                          if(err) console.log(err);
+                          else {
+                            mysql.deleteMentionEntry(mention_result[0].pid, function(err, delete_result) {
+                              if(err) console.log(err);
+                              else {
+                                 message.channel.send({embed: richMsg("", "Mention for "+name+" deleted.", CONFIG.GOOD)});
+                              }
+                            });
+                          }
+                        });
+                        //Check if there is an entry already
 
-              break;
-          case "show":
-              if(isNaN(args[0])) {
-                mysql.getMentionByName(args[0], function(err, result) {
-                  if(err) console.log(err);
-                  else {
-
-                  }
-                });
+                        //Remove entry
+                      break;
+                  case "show": //?men show name
+                      mysql.getMentionByName(name, function(err, mention_result) {
+                        if(err) console.log(err);
+                        else {
+                          if(mention_result.length > 0) {
+                            message.channel.send({embed: richMsg("", "Mention for "+name+": "+mention_result[0].mention, CONFIG.GOOD)});
+                          }
+                          else {
+                            message.channel.send({embed: richMsg("", "Mention not found for "+name, CONFIG.ERROR)});
+                          }                    
+                        }
+                      });
+                      break;
               }
-              else {
-                message.channel.send("Argument 2 needs to be a name.");
-              }
-              break;
+            } //else
+          });
         }
       }
       else {
-        message.channel.send("ADMIN ONLY COMMAND");
+        message.channel.send({embed: richMsg("", "ADMIN ONLY COMMAND", CONFIG.ERROR)});
       }
-
-
-
-
     }
 
 

@@ -178,6 +178,20 @@ exports.getMentionByName = function(pname, callback) {
     }); 
 }
 
+exports.getAllMentions = function(callback) {
+    conn.query("SELECT * FROM `mentions`", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+exports.deleteMentionEntry = function(pid, callback) {
+    conn.query("DELETE FROM `mentions` WHERE pid=?",[pid], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
 
 //Pokemon List Queries
 //Get all PokemonList entries
