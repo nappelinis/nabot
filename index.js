@@ -1063,6 +1063,9 @@ bot.on('message', (message) => {
                 if(isNaN(newRange)) errorMessage.push("Need to be a floating point number. Example: "+CONFIG.PREFIX+"range set 5");
                 if(!isNaN(newRange) && (newRange > 20 || newRange < 0)) errorMessage.push("Max Range: 20km. Example: "+CONFIG.PREFIX+"range set 20");
 
+                //Fix length
+                newRange = newRange.toFixed(1);
+
                 if(errorMessage.length > 0) {
                     message.author.send({embed: richMsg("", errorMessage.join("\n"), CONFIG.ERROR)});
                 }
@@ -1083,7 +1086,7 @@ bot.on('message', (message) => {
                                     console.log(err);
                                 }
                                 else {
-                                    message.author.send({embed: richMsg("", "Updated Range to " + newRange + ".", CONFIG.GOOD)});
+                                    message.author.send({embed: richMsg("", "Updated Range to " + newRange +"km", CONFIG.GOOD)});
                                 }
                             });
                         }
