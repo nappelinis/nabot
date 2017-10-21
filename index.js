@@ -1058,10 +1058,10 @@ bot.on('message', (message) => {
             case "set":
 
                 //Validate
-                var newRange = parseInt(args[0]);
+                var newRange = parseFloat(args[0]);
                 var errorMessage = [];
-                if(typeof newRange != "number") errorMessage.push("Need to be a number. Example: "+CONFIG.PREFIX+"range set 5");
-                if(typeof newRange == "number" && (newRange > 20 || newRange < 0)) errorMessage.push("Max Range: 20km. Example: "+CONFIG.PREFIX+"range set 20");
+                if(isNaN(newRange)) errorMessage.push("Need to be a floating point number. Example: "+CONFIG.PREFIX+"range set 5");
+                if(!isNaN(newRange) && (newRange > 20 || newRange < 0)) errorMessage.push("Max Range: 20km. Example: "+CONFIG.PREFIX+"range set 20");
 
                 if(errorMessage.length > 0) {
                     message.author.send({embed: richMsg("", errorMessage.join("\n"), CONFIG.ERROR)});
@@ -1426,6 +1426,7 @@ bot.on('message', (message) => {
                       });
                   });  
               });
+              console.log("VALIDATE RANGE COMPLETED");
           }
           else if(TABLE == "range") {
               console.log("VALIDATE RANGE");
@@ -1470,8 +1471,9 @@ bot.on('message', (message) => {
                               }
                           });
                       });
-                  });  
+                  });
               });
+              console.log("VALIDATE RANGE COMPLETED");
           }
           else {
             message.channel.send("Unknown validation.");
