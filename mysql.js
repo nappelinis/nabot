@@ -185,12 +185,26 @@ exports.getAllMentions = function(callback) {
     });
 }
 
+exports.getAllPokemonMentions = function(callback) {
+    conn.query("SELECT * FROM `mentions` WHERE `pid` != 0", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
 exports.deleteMentionEntry = function(pid, callback) {
     conn.query("DELETE FROM `mentions` WHERE pid=?",[pid], function(err, result) {
         if(err) callback(err, null);
         else callback(null, result);
     });
 }
+
+
+
+
+//Live Map Queries
+
+
 
 
 //Pokemon List Queries
@@ -337,4 +351,13 @@ exports.dailyDMCount = function(type, name, value = null, callback) {
 
 }
 
+
+
+//Toledo
+exports.toledoData = function(callback) {
+    conn.query("SELECT * FROM `toledoohio` WHERE expires > NOW() ORDER BY expires ASC", function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
 

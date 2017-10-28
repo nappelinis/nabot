@@ -31,11 +31,15 @@ var pokemon_lmi = lastMessageID();
 var rares_lmi = lastMessageID();
 var raids_lmi = lastMessageID();
 
+var guild_members = lastMessageID();
+
 //Main Bot control
 bot.on('ready', () => {
 
     //Server data
     var guild = bot.guilds.get(CONFIG.GUILD);
+
+    guild.fetchMembers().then(function(gms) { guild_members.set(gms)});
 
     //--Source Channels
     var la_starters = bot.channels.get(CONFIG.STARTERS_CHAN);
@@ -259,6 +263,8 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
     var perfect_IV_chan = bot.channels.get(CONFIG.PERFECT_IV_CHAN);
     var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);
     var trash_IV_chan = bot.channels.get(CONFIG.DITTO_SPAM);
+    var bare_rares_chan = bot.channels.get(CONFIG.BARE_RARES_CHAN);
+    var TEST_NA = bot.channels.get(CONFIG.TEST_NA);
 
     //This should ONLY happen on initial run, preventing bot from reading OLD data.
     if (source_lastMessage.get() == "0") source_lastMessage.set(source_chan.lastMessageID);
@@ -290,6 +296,30 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                         return;
                     }
 
+                    //console.log(message.embeds[0]);
+
+                    //Map Build
+                    var url = message.embeds[0].url;
+                    var coordsString = url.split("=").splice(1);
+                    var coords = coordsString[0].split(",");
+                    var gmaps = mapUrl(coords[0], coords[1]);                      
+
+                    //Set current Pokemon data
+                    var currentMon = {}; //Reset to blank
+                    currentMon.msgTitle = message.embeds[0].title;                                                      //--MSG: TITLE
+                    currentMon.msgDescription = message.embeds[0].description;                                          //--MSG: DESCRIPTION
+                    currentMon.msgUrl = message.embeds[0].url;                                                          //--MSG: URL
+                    currentMon.msgImage = message.embeds[0].image.url;                                                  //--MSG: IMAGE
+                    currentMon.msgThumbnail = message.embeds[0].thumbnail.url;                                          //--MSG: THUMBNAIL
+                    currentMon.name = message.embeds[0].title.split(/\s+/g)[0];                                         //--Name
+                    currentMon.mention = pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]];                    //--Mention
+                    currentMon.gmaps = gmaps;                                                                           //--GMAPS
+                    currentMon.lat = coords[0];                                                                         //--LAT
+                    currentMon.long = coords[1];                                                                        //--LONG
+
+                    //console.log(JSON.stringify(currentMon));
+                    //return;
+
                     async.series([
                             function(callback) { //DITTA CHECK
                                 if(message.author.id == CONFIG.DITTO) {
@@ -302,23 +332,37 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 callback();
                             },
                             function(callback) { //POST MENTION
-                                current_mon = (message.embeds[0].title).split(/\s+/g)[0];
                                 console.log("Channel: "+type);
-                                console.log("Author: "+message.author.username);
-                                console.log("Pokemon: "+current_mon);
+                                console.log("Author:  "+message.author.username);
+                                console.log("Pokemon: "+currentMon.name);
 
-                                var current_mention = pokemon_mentions[current_mon];
-                                if(current_mention.length > 0) {
+                                if(currentMon.mention.length > 0) {
                                     //SEND MESSAGE TO CHANNEL
-                                    if(CONFIG.TESTING === true) bot.channels.get(CONFIG.TEST_NA).send(current_mention);
+                                    if(CONFIG.TESTING === true) TEST_NA.send(currentMon.mention);
                                     else {
-                                      dest_chan.send(current_mention);
+                                      dest_chan.send(currentMon.mention);
                                       mysql.dailyDMCount("CHANNEL", type.toUpperCase()+"MENTION", 1, function(err, result) { if(err) console.log(err); });
 
                                     }
-                                    console.log("Sent Mention: (" + current_mon + ")" + current_mention + " to " + type);
+                                    console.log("Sent Mention: (" + currentMon.name + ")" + currentMon.mention + " to " + type);
                                 }
                                 console.log("Completed Mentions.");
+                                callback();
+                            },
+                            function(callback) { //BARE RARES
+                                if(type == 'rares' && CONFIG.RUN_BARE_RARES === true) {
+                                    var descriptionText = currentMon.msgDescription;
+                                    var descriptionLines = descriptionText.split("\n");
+                                    var newDescription = descriptionLines[2];
+
+                                    bare_rares_chan.send({embed: richMsg(currentMon.msgTitle, newDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps, currentMon.msgThumbnail)});  
+                                    console.log("Posted RaresIV entry trimmed to Rares");
+
+                                    if(currentMon.mention.length > 0) {
+                                      bare_rares_chan.send(currentMon.mention);
+                                    }
+                                    console.log("Posted mention to Bare Rares");
+                                }                        
                                 callback();
                             },
                             function(callback) { //PERFECT IV
@@ -327,19 +371,11 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 ////////////////////////////
                                 var perfect_reg = new RegExp('15/15/15');
                                 var perfect_reg = /15\/15\/15/;                  
-                                var description = message.embeds[0].description;
-                                var perfect_matches = perfect_reg.test(description);
-                                var url = message.embeds[0].url;
-                                var coordsString = url.split("=").splice(1);
-                                var coords = coordsString[0].split(",");
-                                var gmaps = mapUrl(coords[0], coords[1]);
-                                current_mon = (message.embeds[0].title).split(/\s+/g)[0];
-
-                                var perfect_IV_chan = bot.channels.get(CONFIG.PERFECT_IV_CHAN);
+                                var perfect_matches = perfect_reg.test(currentMon.msgDescription);                                
                                 if(perfect_matches && CONFIG.RUN_PERFECT_IV) { //FOUND PERFECT IV
                                     //Send to perfect channel
-                                    perfect_IV_chan.send(CONFIG.PERFECT_IV + " " +current_mon);
-                                    perfect_IV_chan.send({embed: richMsg("PERFECT IV " + message.embeds[0].title, message.embeds[0].description + " **Donate a Dollar for the Scanner/Ditto by typing !donate in any channel**", CONFIG.GOOD, message.embeds[0].url, gmaps)});                                    
+                                    perfect_IV_chan.send(CONFIG.PERFECT_IV + " " +currentMon.name);
+                                    perfect_IV_chan.send({embed: richMsg("PERFECT IV " + currentMon.msgTitle, currentMon.msgDescription + " **Donate a Dollar for the Scanner/Ditto by typing !donate in any channel**", CONFIG.GOOD, message.embeds[0].url, gmaps)});                                    
                                     mysql.dailyDMCount("CHANNEL", "PERFECTIVMENTION", 1, function(err, result) { if(err) console.log(err); });
                                 }
                                 console.log("Completed Perfect IV");
@@ -350,21 +386,11 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 // Perfect LEVEL check
                                 ////////////////////////////
                                 var perfect_reg = new RegExp('LVL: 30');                    
-                                var description = message.embeds[0].description;
-                                var perfect_matches = perfect_reg.exec(description);
-                                var url = message.embeds[0].url;
-                                var coordsString = url.split("=").splice(1);
-                                var coords = coordsString[0].split(",");
-                                var gmaps = mapUrl(coords[0], coords[1]);
-                                current_mon = (message.embeds[0].title).split(/\s+/g)[0];
-
-                                //Check 70=+ IV
-                                var IV_check = checkIV(description, 1, 70);
-
-                                var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);                             
+                                var perfect_matches = perfect_reg.exec(currentMon.msgDescription);                                
+                                var IV_check = checkIV(currentMon.msgDescription, 1, 70); //Check 70=+ IV                            
                                 if(IV_check && perfect_matches != null && CONFIG.RUN_PERFECT_LVL) { //FOUND PERFECT LEVEL
-                                    perfect_LVL_chan.send(CONFIG.PERFECT_LEVEL + " " + current_mon);
-                                    perfect_LVL_chan.send({embed: richMsg("MAX LEVEL " + message.embeds[0].title, message.embeds[0].description, CONFIG.GOOD, message.embeds[0].url, gmaps)});
+                                    perfect_LVL_chan.send(CONFIG.PERFECT_LEVEL + " " + currentMon.name);
+                                    perfect_LVL_chan.send({embed: richMsg("MAX LEVEL " + currentMon.msgTitle, currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                     mysql.dailyDMCount("CHANNEL", "PERFECTLVLMENTION", 1, function(err, result) { if(err) console.log(err); });
                                 }
                                 console.log("Completed Perfect LVL");                               
@@ -375,18 +401,11 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 // TRASH IV check
                                 ////////////////////////////
                                 var trash_reg = /\(0\/0\/0\)/;                    
-                                var description = message.embeds[0].description;
-                                var trash_matches = trash_reg.test(description);
-                                var url = message.embeds[0].url;
-                                var coordsString = url.split("=").splice(1);
-                                var coords = coordsString[0].split(",");
-                                var gmaps = mapUrl(coords[0], coords[1]);
-
-                                var trash_IV_chan = bot.channels.get(CONFIG.DITTO_SPAM);
+                                var trash_matches = trash_reg.test(currentMon.msgDescription);
                                 if(trash_matches && CONFIG.RUN_TRASH_IV) { //FOUND PERFECT IV
                                     //Send to perfect channel
-                                    trash_IV_chan.send(CONFIG.TRASH_IV + " " + current_mon);
-                                    trash_IV_chan.send({embed: richMsg("TRASH IV " + message.embeds[0].title, message.embeds[0].description, CONFIG.GOOD, message.embeds[0].url, gmaps)});
+                                    trash_IV_chan.send(CONFIG.TRASH_IV + " " + currentMon.name);
+                                    trash_IV_chan.send({embed: richMsg("TRASH IV " + currentMon.msgTitle, currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                     mysql.dailyDMCount("CHANNEL", "TRASHIVMENTION", 1, function(err, result) { if(err) console.log(err); });
                                 }
                                 console.log("Completed TRASH IV");
@@ -400,10 +419,9 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 /////////////////////////////
                                 if(type == "rares" || type == "pokemon" || type == "starters") {
 
-                                    var url = message.embeds[0].url;
+                                    var url = currentMon.msgUrl;
                                     var coordsString = url.split("=").splice(1);
                                     var coords = coordsString[0].split(",");
-                                    var gmaps = mapUrl(coords[0], coords[1]);
 
                                     //Get users coods
                                     mysql.getActiveRanges(function(err, results) {
@@ -416,66 +434,41 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                 results.forEach(function(result) {
 
                                                     // Calculate distance between gmaps coords and users coords                                      
-                                                    var dist = distance(parseFloat(coords[0]), parseFloat(coords[1]), parseFloat(result.lat), parseFloat(result.lon));
+                                                    var dist = distance(parseFloat(currentMon.lat), parseFloat(currentMon.long), parseFloat(result.lat), parseFloat(result.lon));
 
                                                     if(dist < result.ran) {
                                                         bot.fetchUser(result.userid).then(function(user) { 
 
-                                                            //Check user for roles
-                                                            // var INSTINCT = guild.roles.find("name", "Instinct");
-                                                            // var guild = bot.guilds.get(CONFIG.GUILD);
-                                                            // console.log(INSTINCT);
-
-                                                            //roles undefined????
-                                                            // var hasValidTeam = true;
-                                                            // var member = guild.members.find("id", CONFIG.DMUSER);
-                                                            // if(!member.roles.has(guild.roles.find("name", "Instinct")) && 
-                                                            //     !member.roles.has(guild.roles.find("name", "Valor")) && 
-                                                            //     !member.roles.has(guild.roles.find("name", "Mystic")) &&
-                                                            //     !member.roles.has(guild.roles.find("name", "Harmony"))) {
-                                                            //     hasValidTeam = false;
-                                                            //     console.log("TEAMLESS PLAYER!");
-                                                            // }
-
                                                             user.createDM().then(function(dm) {
-
-                                                                //User needs to be part of a team to receive messages
-                                                                // if(!hasValidTeam) {
-                                                                //     dm.send({embed: richMsg("", "Join a team to receive range nofitications.", CONFIG.WARNING)});
-                                                                //     return;
-                                                                // }
-
 
                                                                 //Try this, if this doesn't solve it
                                                                 // Implement a var holdMessage to prevent overwrite.
-                                                                var current_mon = (message.embeds[0].description).split(/,/g)[0];
-
                                                                 if(type == "rares" && result.rares == 1) { // && onlineStatuses.includes(user.presence.status)
-                                                                    console.log("Messaging "+current_mon+"("+type+") to "+result.username +" ("+user.presence.status+")");
+                                                                    console.log("Messaging "+currentMon.name+"("+type+") to "+result.username +" ("+user.presence.status+")");
                                                                     if(CONFIG.RARES_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(current_mon + " within range! (Distance: " + round(dist, 2) + " km)", message.embeds[0].description, CONFIG.GOOD, message.embeds[0].url, gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "RARESRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
                                                                 }                                                    
                                                                 if(type == "pokemon" && result.pokemon == 1) { // && onlineStatuses.includes(user.presence.status)
-                                                                    console.log("Messaging "+current_mon+"("+type+") to "+result.username +" ("+user.presence.status+")");
+                                                                    console.log("Messaging "+currentMon.name+"("+type+") to "+result.username +" ("+user.presence.status+")");
                                                                     if(CONFIG.POKEMON_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(current_mon + " within range! (Distance: " + round(dist, 2) + " km)", message.embeds[0].description, CONFIG.GOOD, message.embeds[0].url, gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "POKEMONRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
                                                                 }
                                                                 if(type == "starters" && result.starters == 1) { // && onlineStatuses.includes(user.presence.status)
-                                                                    console.log("Messaging "+current_mon+"("+type+") to "+result.username +" ("+user.presence.status+")");
+                                                                    console.log("Messaging "+currentMon.name+"("+type+") to "+result.username +" ("+user.presence.status+")");
                                                                     if(CONFIG.STARTERS_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else { 
-                                                                          dm.send({embed: richMsg(current_mon + " within range! (Distance: " + round(dist, 2) + " km)", message.embeds[0].description, CONFIG.GOOD, message.embeds[0].url, gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "STARTERSRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -561,6 +554,56 @@ function loadPokemonMentions()
 function loadRaidMentions()
 {
     return require('./raids_mentions.json');
+}
+
+
+//Testing Roles
+//Check if message.member has a certain string role.
+function messageUserHasRole(message, role) {
+  var guild = bot.guilds.get(CONFIG.GUILD);
+  var check_role = message.guild.roles.find("name", role);
+  var hasRole = message.member.roles.has(check_role.id);
+  return hasRole;
+}
+
+
+//User by UserID has string role
+//User = name
+//User = userID
+//Role = name
+//Role = roleID
+
+
+function userHasRole(user_value, role_value, callback) {
+  var guild = bot.guilds.get(CONFIG.GUILD);
+  var found = false;
+
+  //Convert string username to userid
+  if(isNaN(user_value)) {
+    var gottenUser = bot.users.find("username", user_value);
+    if(gottenUser != null) user_value = gottenUser.id;
+  } 
+
+//CHECK IF the ROLE exists regardless
+
+
+  //Fetch user based on id or string name
+  bot.fetchUser(user_value).then(function(user) {
+    guild.fetchMember(user).then(function(member) {
+
+      //Check if user has the passed role
+      var memberRoles = member.roles;
+      memberRoles.forEach(function(role) {
+        if(role.name == role_value) {
+          found = true;
+        }
+      });
+      callback(found);
+    })
+  }).catch(function(err) {
+    console.log("Unable to fetchUser in userHasRole ("+user_value+", "+role+") Error: "+err);
+    callback(false);
+  });
 }
 
 
@@ -662,13 +705,16 @@ bot.on('message', (message) => {
         commands.push(CONFIG.PREFIX + "pm - List - Pokemon Mentions");
         commands.push(CONFIG.PREFIX + "rm - List - Raid Mentions");
         commands.push(CONFIG.PREFIX + "howto - How to add/remove roles");
+        commands.push(CONFIG.PREFIX + "myroles - Displays all your current roles");
         commands.push(CONFIG.PREFIX + "change night - Go to night setting (Unown only + saves all mentions).");  
         commands.push(CONFIG.PREFIX + "change day - Go to day setting (Retrieves previously saved night setting).");
         commands.push(CONFIG.PREFIX + "range help - SUB MENU -- GPS Range Feature Help.");
         commands.push(CONFIG.PREFIX + "range examples - GPS Range Feature Examples (pastebin link).");
+        commands.push(CONFIG.PREFIX + "gp pokemonname/pokemon# - Populates gamepress link for pokemon.");
+        commands.push(CONFIG.PREFOX + "gen # - Display all pokemon listed within the selected generation 1-7.");
         commands.push(CONFIG.PREFIX + "author - Author");
         commands.push("\n");
-        commands.push("Questions or dont understand something, but you want to use it? PM me Nappelinis");
+        commands.push("Questions or dont understand something, but you want to use it? PM me: Nappelinis");
         commands.push("\n");
         commands.push("Like what you see? Donate to my efforts. https://www.paypal.me/Nappelinis/");
         message.channel.send({ embed: richMsg("Ditto - Available commands", commands.join("\n"), CONFIG.GOOD)})
@@ -736,6 +782,29 @@ bot.on('message', (message) => {
     if(message.content.startsWith(CONFIG.PREFIX + "author")) {
         message.channel.send({ embed: richMsg("My master and commander is", "Nappelinis", CONFIG.GOOD)});
     }
+
+
+    //Role test
+    if(message.content.startsWith(CONFIG.PREFIX + "rc")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var role = args[0];
+
+      if(messageUserHasRole(message, role))
+        message.channel.send("User has "+role);
+      else
+        message.channel.send("User does not have "+role);
+    }
+
+    if(message.content.startsWith(CONFIG.PREFIX + "ur")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var user = args[0];
+      var role = args[1];
+      userHasRole(user, role, function(found) {
+        if(found == true) message.channel.send("User "+user+" has "+role);
+        if(found == false) message.channel.send("User "+user+" does not have "+role);
+      })  
+    }
+
 
 
     if (message.content.startsWith(CONFIG.PREFIX + "change") && CONFIG.CHANGE) {
@@ -917,7 +986,7 @@ bot.on('message', (message) => {
                 rangeList.push("**"+CONFIG.PREFIX+"range show** -- Displays your data.");
                 rangeList.push("**"+CONFIG.PREFIX+"range on** -- Activates your range notifications. (DEFAULT)");
                 rangeList.push("**"+CONFIG.PREFIX+"range off** -- Deactivates your range notifications.");
-                rangeList.push("**"+CONFIG.PREFIX+"range set X** -- Where X is a whole number. 2 means 2km.");
+                rangeList.push("**"+CONFIG.PREFIX+"range set X** -- Where X is a floating point number (xx.y) From 0 to 20. Example: 1.7 means 1.7km");
                 rangeList.push("**"+CONFIG.PREFIX+"range delete** -- Deletes any and all entries of your ranges.");
                 // Part 2
                 message.author.send({embed: richMsg("", rangeList.join("\n"), CONFIG.GOOD)});
@@ -928,10 +997,10 @@ bot.on('message', (message) => {
                 rangeList.push("**"+CONFIG.PREFIX+"range pokemon on|off** -- Turn <#"+CONFIG.POKEMON_CHAN+"> range notifications on/off.");
                 rangeList.push("**"+CONFIG.PREFIX+"range starters on|off** -- Turn <#"+CONFIG.STARTERS_CHAN+"> range notifications on/off.");
                 rangeList.push("**"+CONFIG.PREFIX+"range raids on|off** -- Turn raid channels range notifications on/off.");
-                rangeList.push("**"+CONFIG.PREFIX+"range mentions on|off** -- Turn mentions on/off. Whether to obey your current set mentions(on) or ignore them(off). [NOT IMPLEMENTED]");
+                rangeList.push("**"+CONFIG.PREFIX+"range raidlevels 1,2,3,4,5** -- Example: "+CONFIG.PREFIX+"range raidlevels 1,4,5 for raids Level: 1, 4 and 5");
                 rangeList.push("\n");
                 rangeList.push("**Work in progress**");
-                rangeList.push("**"+CONFIG.PREFIX+"range raidlevels 1,2,3,4,5** -- Example: "+CONFIG.PREFIX+"range raidlevels 1,4,5 for raids Level: 1, 4 and 5");
+                rangeList.push("**"+CONFIG.PREFIX+"range mentions on|off** -- Turn mentions on/off. Whether to obey your current set mentions(on) or ignore them(off). [NOT IMPLEMENTED]");
                 // Part 3
                 message.author.send({embed: richMsg("", rangeList.join("\n"), CONFIG.GOOD)});
 
@@ -1317,10 +1386,6 @@ bot.on('message', (message) => {
     }
 
 
-
-
-
-
     //MyRoles
     if(message.content.startsWith(CONFIG.PREFIX+"myroles")) {
         var member_roles = message.member.roles;
@@ -1333,9 +1398,19 @@ bot.on('message', (message) => {
 
     //
 
+    //Passive aggressiveness
+    if(message.content.startsWith(CONFIG.PREFIX+"google")) {
+      message.channel.send({embed: richMsg("HALP ME!", "http://lmgtfy.com/?iie=1&q=http://www.google.com", CONFIG.GOOD)});
+    }
+
+
+
+    //Live map
+
 
 
     //Alive/Prune testing
+    //Unfinished
     if(message.content.startsWith(CONFIG.PREFIX+"check")) {
         let args = message.content.split(/\s+/g).slice(1);
         let SEARCH_ROLE = message.guild.roles.find("name", args[0]);
@@ -1539,6 +1614,55 @@ bot.on('message', (message) => {
     }
 
 
+    //Toledo
+    if(message.content.startsWith(CONFIG.PREFIX+"livemap")) {
+      var args = message.content.split(/\s+/g).slice(1);
+
+      var action = args.shift(1);
+
+      let SERVER_ADMIN = message.guild.roles.find("name", "Admin");
+      let BOT_MASTER = message.guild.roles.find("name", "bot master");
+
+      var prices = {"3days": 1.99, "14days": 2.99, "1month": 4.99, "1month-non-recurring": 4.99, "1monthplus": 10.00, "1monthplus-non-recurring": 10.00};
+
+      if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
+        
+        mysql.toledoData(function(err, toledoData) {
+          if(err) console.log(err);
+          else {
+              switch(action) {
+
+                  case "total":
+                      var sum = 0;
+                      toledoData.forEach(function(item) {
+                        sum += prices[item.type];
+                      });
+                      
+                      message.channel.send("Toledo Ohio Sum: "+sum.toFixed(2)+"\n"+"(Based on currently active subscriptions)");              
+                      break;
+
+                  case "data":
+
+                      var displayData = [];
+                      toledoData.forEach(function(item) {
+                        displayData.push(item.username+"    **"+item.type+ " ("+prices[item.type]+")**    "+new Date(item.expires).toLocaleDateString());
+                      });
+                      message.channel.send(displayData.join("\n"));
+                      break;
+
+
+              }
+          }
+        });
+      }
+      else {
+        message.channel.send("ADMIN ONLY COMMAND");
+      }
+
+    }
+
+
+
     //Mention controller
     if(message.content.startsWith(CONFIG.PREFIX+"mention")) {
       var args = message.content.split(/\s+/g).slice(1);
@@ -1548,6 +1672,45 @@ bot.on('message', (message) => {
       let BOT_MASTER = message.guild.roles.find("name", "bot master");
 
       if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
+
+        //Display all mentions that currently exist
+        if(action == "showall") {
+
+          var mentions = [];
+          mysql.getAllPokemonMentions(function(err, mention_results) {
+            if(err) console.log(err);
+            else {
+              mention_results.forEach(function(mention_item) {
+                mentions.push(mention_item.mention+" "+mention_item.pname);
+              });
+
+              //Deal with long message above 2048 chars
+              var messagesToSend = [];
+              var sendMsg = [];
+              var msg = "";              
+              mentions.forEach(function(mention) {
+                  msg += mention;
+                  sendMsg.push(mention);
+                  if(msg.length > 1800) {
+                      messagesToSend.push(sendMsg);
+                      msg = "";
+                      sendMsg = [];                    
+                  }
+              });
+
+              //Append last
+              messagesToSend.push(sendMsg);
+
+              messagesToSend.forEach(function(msg) {
+                  console.log("Sending...");
+                  console.log(msg.join(" "));
+                  message.channel.send({embed: richMsg("", msg.join("\n"), CONFIG.GOOD)});                        
+              });
+
+            }
+          });
+          return;
+        }
 
         //Check pokemon name
         var name = args.shift(1);
