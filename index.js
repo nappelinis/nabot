@@ -309,10 +309,15 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     var coords = coordsString[0].split(",");
                     var gmaps = mapUrl(coords[0], coords[1]);   
 
+                    var descriptionText = message.embeds[0].description;
+                    var descriptionLines = descriptionText.split("\n");
+                    var noIV_Description = descriptionLines[2];
+
                     //Set current Pokemon data
                     var currentMon = {}; //Reset to blank
                     currentMon.msgTitle = (typeof message.embeds[0].title != "undefined" ? message.embeds[0].title : "");
-                    currentMon.msgDescription = (typeof message.embeds[0].description != "undefined" ? message.embeds[0].description : "");                                          
+                    currentMon.msgDescription = (typeof message.embeds[0].description != "undefined" ? message.embeds[0].description : "");
+                    currentMon.noIVDescription = noIV_Description;                                         
                     currentMon.msgUrl = (typeof message.embeds[0].url != "undefined" ? message.embeds[0].url : "");      
                     currentMon.msgImage = (typeof message.embeds[0].image.url != "undefined" ? message.embeds[0].image.url : "");
                     currentMon.msgThumbnail = (typeof message.embeds[0].thumbnail.url != "undefined" ? message.embeds[0].thumbnail.url : "");
@@ -482,6 +487,20 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                             else { //work
                                                 results.forEach(function(result) {
 
+                                                    var allowedRoles = ["Livemap"];
+                                                    var ivRole = false;
+
+                                                    allowedRoles.forEach(function aRole) {                                                      
+                                                      //Check if user has required roles
+                                                      if(ivRole = userHasRole(result.userid, aRole))
+                                                      {
+                                                        console.log("Success: User "+result.username+" has required "+aRole+" role!");                              
+                                                      }
+                                                      else {
+                                                        console.log("No IV for you: "+result.username+" does not have required "+aRole+" role!");
+                                                      }
+                                                    }
+
                                                     // Calculate distance between gmaps coords and users coords                                      
                                                     var dist = distance(parseFloat(currentMon.lat), parseFloat(currentMon.long), parseFloat(result.lat), parseFloat(result.lon));
 
@@ -497,7 +516,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.RARES_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "RARESRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -507,7 +526,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.POKEMON_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "POKEMONRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -517,7 +536,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.STARTERS_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else { 
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "STARTERSRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -1048,8 +1067,8 @@ bot.on('message', (message) => {
                 rangeList.push("**"+CONFIG.PREFIX+"range raids on|off** -- Turn raid channels range notifications on/off.");
                 rangeList.push("**"+CONFIG.PREFIX+"range raidlevels 1,2,3,4,5** -- Example: "+CONFIG.PREFIX+"range raidlevels 1,4,5 for raids Level: 1, 4 and 5");
                 rangeList.push("\n");
-                rangeList.push("**Work in progress**");
-                rangeList.push("**"+CONFIG.PREFIX+"range mentions on|off** -- Turn mentions on/off. Whether to obey your current set mentions(on) or ignore them(off). [NOT IMPLEMENTED]");
+                //rangeList.push("****");
+                //rangeList.push("**"+CONFIG.PREFIX+"range mentions on|off** -- Turn mentions on/off. Whether to obey your current set mentions(on) or ignore them(off). [NOT IMPLEMENTED]");
                 // Part 3
                 message.author.send({embed: richMsg("", rangeList.join("\n"), CONFIG.GOOD)});
 
@@ -1163,7 +1182,7 @@ bot.on('message', (message) => {
                               message.author.send({embed: richMsg("", "Unable to update raid levels.", CONFIG.ERROR)});
                             }
                             else {
-                              message.author.send({embed: richMsg("", "Updaded raid levels to "+raw_raidlevels, CONFIG.GOOD)});
+                              message.author.send({embed: richMsg("", "Updated raid levels to "+raw_raidlevels, CONFIG.GOOD)});
                             }
                           });
                         }
@@ -1249,7 +1268,7 @@ bot.on('message', (message) => {
                             userData.push("**Pokemon:**"+(result[0].pokemon ? " ON" : " OFF"));
                             userData.push("**Starters:**"+(result[0].starters ? " ON" : " OFF"));
                             userData.push("**Raids:**"+(result[0].raids ? " ON" : " OFF"));
-                            userData.push("**Raid Levels:** "+result[0].raid_levels + notImplemented);
+                            userData.push("**Raid Levels:** "+result[0].raid_levels);
                             userData.push("**Mentions:**"+(result[0].mentions ? " ON" : " OFF"));
                             message.author.send({embed: richMsg("", userData.join('\n'), CONFIG.GOOD)});
                         }
