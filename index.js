@@ -297,8 +297,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     }
 
 
-                    var embed = message.embeds[0];
-                    console.log(embed);
+                    var embed = message.embeds[0];                    
                     if(typeof embed == "undefined") {
                         return; //No embed, no valued message.
                     }
@@ -313,11 +312,14 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     var descriptionLines = descriptionText.split("\n");
                     var noIV_Description = descriptionLines[2];
 
+                    console.log(descriptionText);
+                    console.log(noIV_Description);
+
                     //Set current Pokemon data
                     var currentMon = {}; //Reset to blank
                     currentMon.msgTitle = (typeof message.embeds[0].title != "undefined" ? message.embeds[0].title : "");
                     currentMon.msgDescription = (typeof message.embeds[0].description != "undefined" ? message.embeds[0].description : "");
-                    currentMon.noIVDescription = noIV_Description;                                         
+                    currentMon.noIV_Description = noIV_Description;                                         
                     currentMon.msgUrl = (typeof message.embeds[0].url != "undefined" ? message.embeds[0].url : "");      
                     currentMon.msgImage = (typeof message.embeds[0].image.url != "undefined" ? message.embeds[0].image.url : "");
                     currentMon.msgThumbnail = (typeof message.embeds[0].thumbnail.url != "undefined" ? message.embeds[0].thumbnail.url : "");
@@ -487,24 +489,35 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                             else { //work
                                                 results.forEach(function(result) {
 
-                                                    var allowedRoles = ["Livemap"];
-                                                    var ivRole = false;
 
-                                                    allowedRoles.forEach(function aRole) {                                                      
-                                                      //Check if user has required roles
-                                                      if(ivRole = userHasRole(result.userid, aRole))
-                                                      {
-                                                        console.log("Success: User "+result.username+" has required "+aRole+" role!");                              
-                                                      }
-                                                      else {
-                                                        console.log("No IV for you: "+result.username+" does not have required "+aRole+" role!");
-                                                      }
-                                                    }
 
                                                     // Calculate distance between gmaps coords and users coords                                      
                                                     var dist = distance(parseFloat(currentMon.lat), parseFloat(currentMon.long), parseFloat(result.lat), parseFloat(result.lon));
 
                                                     if(dist < result.ran) {
+
+                                                        var allowedRoles = ["Livemap"];
+                                                        var ivRole = false;
+
+                                                        allowedRoles.forEach(function(aRole) {
+
+                                                          if(ivRole === true) return; //If already set to true, do not continue checks
+
+                                                          //Check if user has required roles
+                                                          userHasRole(result.userid, aRole, function(hasRole) { ivRole = hasRole; });
+
+                                                          //console.log(aRole+" "+result.userid+" "+result.username+" "+ivRole);
+
+                                                          if(ivRole)
+                                                          {
+                                                            console.log("Success: User "+result.username+" has required "+aRole+" role!");                          
+                                                          }
+                                                          else {
+                                                            console.log("No IV for you: "+result.username+" does not have required "+aRole+" role!");
+                                                          }
+                                                        });
+
+
                                                         bot.fetchUser(result.userid).then(function(user) { 
 
                                                             user.createDM().then(function(dm) {
