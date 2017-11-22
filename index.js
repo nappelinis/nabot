@@ -296,29 +296,36 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                         return;
                     }
 
-                    //console.log(message.embeds[0]);
 
-                    //Map Build
-                    var url = message.embeds[0].url;
+                    var embed = message.embeds[0];
+                    console.log(embed);
+                    if(typeof embed == "undefined") {
+                        return; //No embed, no valued message.
+                    }
+
+
+                    var url = (typeof message.embeds[0].url != "undefined" ? message.embeds[0].url : "");
                     var coordsString = url.split("=").splice(1);
                     var coords = coordsString[0].split(",");
-                    var gmaps = mapUrl(coords[0], coords[1]);                      
+                    var gmaps = mapUrl(coords[0], coords[1]);   
 
                     //Set current Pokemon data
                     var currentMon = {}; //Reset to blank
-                    currentMon.msgTitle = message.embeds[0].title;                                                      //--MSG: TITLE
-                    currentMon.msgDescription = message.embeds[0].description;                                          //--MSG: DESCRIPTION
-                    currentMon.msgUrl = message.embeds[0].url;                                                          //--MSG: URL
-                    currentMon.msgImage = message.embeds[0].image.url;                                                  //--MSG: IMAGE
-                    currentMon.msgThumbnail = message.embeds[0].thumbnail.url;                                          //--MSG: THUMBNAIL
-                    currentMon.name = message.embeds[0].title.split(/\s+/g)[0];                                         //--Name
-                    currentMon.mention = pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]];                    //--Mention
-                    currentMon.gmaps = gmaps;                                                                           //--GMAPS
-                    currentMon.lat = coords[0];                                                                         //--LAT
-                    currentMon.long = coords[1];                                                                        //--LONG
+                    currentMon.msgTitle = (typeof message.embeds[0].title != "undefined" ? message.embeds[0].title : "");
+                    currentMon.msgDescription = (typeof message.embeds[0].description != "undefined" ? message.embeds[0].description : "");                                          
+                    currentMon.msgUrl = (typeof message.embeds[0].url != "undefined" ? message.embeds[0].url : "");      
+                    currentMon.msgImage = (typeof message.embeds[0].image.url != "undefined" ? message.embeds[0].image.url : "");
+                    currentMon.msgThumbnail = (typeof message.embeds[0].thumbnail.url != "undefined" ? message.embeds[0].thumbnail.url : "");
+                    currentMon.name = (typeof message.embeds[0].title != "undefinded" ? message.embeds[0].title.split(/\s+/g)[0] : "");
+                    currentMon.mention = (typeof message.embeds[0].title != "undefined" ? pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]] : "");
+                    currentMon.gmaps = gmaps;                                                                         
+                    currentMon.lat = coords[0];                                                                    
+                    currentMon.long = coords[1];                                                                 
+
 
                     //console.log(JSON.stringify(currentMon));
                     //return;
+
 
                     async.series([
                             function(callback) { //DITTA CHECK
@@ -331,6 +338,13 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 }
                                 callback();
                             },
+                            function(callback) {
+                              //Setter
+                              //Map Build
+
+
+                              callback();
+                            },
                             function(callback) { //POST MENTION
                                 console.log("Channel: "+type);
                                 console.log("Author:  "+message.author.username);
@@ -338,7 +352,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
 
                                 if(currentMon.mention.length > 0) {
                                     //SEND MESSAGE TO CHANNEL
-                                    if(CONFIG.TESTING === true) TEST_NA.send(currentMon.mention);
+                                    if(CONFIG.TESTING === true) bot.channels.get(CONFIG.TEST_NA).send(currentMon.mention);
                                     else {
                                       dest_chan.send(currentMon.mention);
                                       mysql.dailyDMCount("CHANNEL", type.toUpperCase()+"MENTION", 1, function(err, result) { if(err) console.log(err); });
@@ -354,7 +368,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                     var descriptionText = currentMon.msgDescription;
                                     var descriptionLines = descriptionText.split("\n");
                                     var newDescription = descriptionLines[2];
-
+                                    var bare_rares_chan = bot.channels.get(CONFIG.BARE_RARES_CHAN);
                                     bare_rares_chan.send({embed: richMsg(currentMon.msgTitle, newDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps, currentMon.msgThumbnail)});  
                                     console.log("Posted RaresIV entry trimmed to Rares");
 
@@ -365,6 +379,38 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 }                        
                                 callback();
                             },
+                            function(callback) { //BARE RARES
+                                if(type == 'pokemon' && CONFIG.RUN_BARE_POKEMON === true) {
+                                    var descriptionText = currentMon.msgDescription;
+                                    var descriptionLines = descriptionText.split("\n");
+                                    var newDescription = descriptionLines[2];
+                                    var bare_pokemon_chan = bot.channels.get(CONFIG.BARE_POKEMON_CHAN);
+                                    bare_pokemon_chan.send({embed: richMsg(currentMon.msgTitle, newDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps, currentMon.msgThumbnail)});  
+                                    console.log("Posted PokemonIV entry trimmed to Pokemon");
+
+                                    if(currentMon.mention.length > 0) {
+                                      bare_pokemon_chan.send(currentMon.mention);
+                                    }
+                                    console.log("Posted mention to Bare Pokemon");
+                                }                        
+                                callback();
+                            },
+                            function(callback) { //BARE RARES
+                                if(type == 'starters' && CONFIG.RUN_BARE_POKEMON === true) {
+                                    var descriptionText = currentMon.msgDescription;
+                                    var descriptionLines = descriptionText.split("\n");
+                                    var newDescription = descriptionLines[2];
+                                    var bare_starters_chan = bot.channels.get(CONFIG.BARE_STARTERS_CHAN);
+                                    bare_starters_chan.send({embed: richMsg(currentMon.msgTitle, newDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps, currentMon.msgThumbnail)});  
+                                    console.log("Posted StartersIV entry trimmed to Starters");
+
+                                    if(currentMon.mention.length > 0) {
+                                      bare_starters_chan.send(currentMon.mention);
+                                    }
+                                    console.log("Posted mention to Bare Starters");
+                                }                        
+                                callback();
+                            },  
                             function(callback) { //PERFECT IV
                                 ////////////////////////////
                                 // Perfect IV check
@@ -374,6 +420,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 var perfect_matches = perfect_reg.test(currentMon.msgDescription);                                
                                 if(perfect_matches && CONFIG.RUN_PERFECT_IV) { //FOUND PERFECT IV
                                     //Send to perfect channel
+                                    var perfect_IV_chan = bot.channels.get(CONFIG.PERFECT_IV_CHAN);
                                     perfect_IV_chan.send(CONFIG.PERFECT_IV + " " +currentMon.name);
                                     perfect_IV_chan.send({embed: richMsg("PERFECT IV " + currentMon.msgTitle, currentMon.msgDescription + " **Donate a Dollar for the Scanner/Ditto by typing !donate in any channel**", CONFIG.GOOD, message.embeds[0].url, gmaps)});                                    
                                     mysql.dailyDMCount("CHANNEL", "PERFECTIVMENTION", 1, function(err, result) { if(err) console.log(err); });
@@ -389,6 +436,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 var perfect_matches = perfect_reg.exec(currentMon.msgDescription);                                
                                 var IV_check = checkIV(currentMon.msgDescription, 1, 70); //Check 70=+ IV                            
                                 if(IV_check && perfect_matches != null && CONFIG.RUN_PERFECT_LVL) { //FOUND PERFECT LEVEL
+                                    var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);
                                     perfect_LVL_chan.send(CONFIG.PERFECT_LEVEL + " " + currentMon.name);
                                     perfect_LVL_chan.send({embed: richMsg("MAX LEVEL " + currentMon.msgTitle, currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                     mysql.dailyDMCount("CHANNEL", "PERFECTLVLMENTION", 1, function(err, result) { if(err) console.log(err); });
@@ -404,6 +452,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 var trash_matches = trash_reg.test(currentMon.msgDescription);
                                 if(trash_matches && CONFIG.RUN_TRASH_IV) { //FOUND PERFECT IV
                                     //Send to perfect channel
+                                    var trash_IV_chan = bot.channels.get(CONFIG.DITTO_SPAM);
                                     trash_IV_chan.send(CONFIG.TRASH_IV + " " + currentMon.name);
                                     trash_IV_chan.send({embed: richMsg("TRASH IV " + currentMon.msgTitle, currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                     mysql.dailyDMCount("CHANNEL", "TRASHIVMENTION", 1, function(err, result) { if(err) console.log(err); });
