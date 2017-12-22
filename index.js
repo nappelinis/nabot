@@ -207,7 +207,7 @@ function run_raid_bot(la_raids, output_channels, raids_lmi) {
                                             var user_raw_raidlevels = result.raid_levels;
                                             var user_array_raidlevels = user_raw_raidlevels.split(",");
 
-                                            console.log("DEBUG: "+ user_raw_raidlevels+" "+level+" "+result.username);
+                                            //console.log("DEBUG: "+ user_raw_raidlevels+" "+level+" "+result.username);
 
                                             //Check if user has that raid level listed
                                             if(user_array_raidlevels.indexOf(level) > -1) {
@@ -312,8 +312,10 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     var descriptionLines = descriptionText.split("\n");
                     var noIV_Description = descriptionLines[2];
 
-                    console.log(descriptionText);
-                    console.log(noIV_Description);
+                    var currentPokemonMention = (typeof pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]] === 'undefined' ? "" : pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]]);
+
+                    //console.log(descriptionText);
+                    //console.log(noIV_Description);
 
                     //Set current Pokemon data
                     var currentMon = {}; //Reset to blank
@@ -324,7 +326,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     currentMon.msgImage = (typeof message.embeds[0].image.url != "undefined" ? message.embeds[0].image.url : "");
                     currentMon.msgThumbnail = (typeof message.embeds[0].thumbnail.url != "undefined" ? message.embeds[0].thumbnail.url : "");
                     currentMon.name = (typeof message.embeds[0].title != "undefinded" ? message.embeds[0].title.split(/\s+/g)[0] : "");
-                    currentMon.mention = (typeof message.embeds[0].title != "undefined" ? pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]] : "");
+                    currentMon.mention = (typeof message.embeds[0].title != "undefined" ? currentPokemonMention : "");
                     currentMon.gmaps = gmaps;                                                                         
                     currentMon.lat = coords[0];                                                                    
                     currentMon.long = coords[1];                                                                 
@@ -435,14 +437,38 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 console.log("Completed Perfect IV");
                                 callback();
                             },
+                            function(callback) { // 97.8%
+                                ////////////////////////////
+                                // 97.8% check
+                                ////////////////////////////                              
+                                var IV_check = checkIV(currentMon.msgDescription, 1, "97.8%", "equal"); //Check String "97.8" IV                            
+                                if(IV_check && CONFIG.RUN_IV_98) { //FOUND 97.8%
+                                    dest_chan.send(CONFIG.IV_98+" "+currentMon.name);                                    
+                                }
+                                console.log("Completed IV 98");                               
+                                callback();   
+                            },
+                            function(callback) { // 95.6%
+                                ////////////////////////////
+                                // 95.6% check
+                                ////////////////////////////                              
+                                var IV_check = checkIV(currentMon.msgDescription, 1, "95.6%", "equal"); //Check String "95.6%" IV                            
+                                if(IV_check && CONFIG.RUN_IV_96) { //FOUND 95.6%
+                                    dest_chan.send(CONFIG.IV_96+" "+currentMon.name);                                                                 
+                                }
+                                console.log("Completed IV 96");                               
+                                callback();   
+                            },
                             function(callback) { //PERFECT LVL
                                 ////////////////////////////
                                 // Perfect LEVEL check
                                 ////////////////////////////
-                                var perfect_reg = new RegExp('LVL: 30');                    
-                                var perfect_matches = perfect_reg.exec(currentMon.msgDescription);                                
-                                var IV_check = checkIV(currentMon.msgDescription, 1, 70); //Check 70=+ IV                            
-                                if(IV_check && perfect_matches != null && CONFIG.RUN_PERFECT_LVL) { //FOUND PERFECT LEVEL
+                                var perfect_reg = new RegExp(/LVL: 3\d{1}/, 'g');                    
+                                var perfect_matches = perfect_reg.test(currentMon.msgDescription);
+                                var IV_check = checkIV(currentMon.msgDescription, 1, 90, "equalbigger"); //Check 70=+ IV 
+                                var IV_check100 = checkIV(currentMon.msgDescription, 1, "100%", "equal");
+
+                                if((IV_check || IV_check100) && perfect_matches != false && CONFIG.RUN_PERFECT_LVL) { //FOUND PERFECT LEVEL
                                     var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);
                                     perfect_LVL_chan.send(CONFIG.PERFECT_LEVEL + " " + currentMon.name);
                                     perfect_LVL_chan.send({embed: richMsg("MAX LEVEL " + currentMon.msgTitle, currentMon.msgDescription, CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
@@ -508,7 +534,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
 
                                                           //console.log(aRole+" "+result.userid+" "+result.username+" "+ivRole);
 
-                                                          if(ivRole)
+                                                          if(ivRole === true)
                                                           {
                                                             console.log("Success: User "+result.username+" has required "+aRole+" role!");                          
                                                           }
@@ -641,12 +667,39 @@ function loadRaidMentions()
 //Testing Roles
 //Check if message.member has a certain string role.
 function messageUserHasRole(message, role) {
-  var guild = bot.guilds.get(CONFIG.GUILD);
   var check_role = message.guild.roles.find("name", role);
   var hasRole = message.member.roles.has(check_role.id);
   return hasRole;
 }
 
+
+//MAIN DISCORD HELPERS
+//TRASH? FIX!
+function getMember(bot, identifier, callback) {
+  var guild = bot.guilds.get(CONFIG.GUILD);
+
+  var gms = guild_members.get();
+  console.log(gms);
+
+  console.log(bot.users);
+
+  //Convert string username to userid
+  if(isNaN(identifier)) {
+    var gottenUser = bot.users.get("name", identifier);
+    dlog(gottenUser);
+    if(gottenUser != null) identifier = gottenUser.id;
+  } 
+
+  dlog("New Identifier: "+identifier);
+
+  bot.fetchUser(identifier).then(function(user) {
+    console.log(JSON.stringify(user));
+    guild.fetchMember(user).then(function(member) {
+      console.log(JSON.stringify(member));
+      callback(member);
+    });
+  });
+}
 
 //User by UserID has string role
 //User = name
@@ -654,8 +707,19 @@ function messageUserHasRole(message, role) {
 //Role = name
 //Role = roleID
 
+//DITTO DEBUGGING
+function dlog(message) {
+  if(CONFIG.DITTO_DEBUGGING === true) {
+    var ditto_debugging_chan = bot.channels.get(CONFIG.DD);
+    ditto_debugging_chan.send(message);
+  }
+}
+
 
 function userHasRole(user_value, role_value, callback) {
+
+  //dlog("userHasRole: "+ user_value + " " + role_value);
+
   var guild = bot.guilds.get(CONFIG.GUILD);
   var found = false;
 
@@ -665,8 +729,9 @@ function userHasRole(user_value, role_value, callback) {
     if(gottenUser != null) user_value = gottenUser.id;
   } 
 
-//CHECK IF the ROLE exists regardless
-
+  //CHECK IF the ROLE exists regardless
+  var role = guild.roles.get("name", role_value);
+  dlog(role);
 
   //Fetch user based on id or string name
   bot.fetchUser(user_value).then(function(user) {
@@ -682,7 +747,7 @@ function userHasRole(user_value, role_value, callback) {
       callback(found);
     })
   }).catch(function(err) {
-    console.log("Unable to fetchUser in userHasRole ("+user_value+", "+role+") Error: "+err);
+    dlog("Unable to fetchUser in userHasRole ("+user_value+", "+role+") Error: "+err);
     callback(false);
   });
 }
@@ -691,13 +756,23 @@ function userHasRole(user_value, role_value, callback) {
 /*
 / Check description for a certain IV+ value (70+)
 */
-function checkIV(rawString, elementIndex, value) {
+function checkIV(rawString, elementIndex, value, comparison) {
     var chunks = rawString.split(" ");
     var rawIV = chunks[elementIndex];
-    var IVchunks = rawIV.split(".");
-    var IV = parseInt(IVchunks[0]);
-    if(IV >= value) return true;
-    else return false;
+
+    //Equal comparision for '95.6%' -String compare
+    if(comparison == "equal") {
+      if(rawIV == value) return true;
+    }
+
+    //EqualBigger comparison for 70+ -Integer compare
+    if(comparison == "equalbigger") {
+      var IVchunks = rawIV.split(".");
+      var IV = parseInt(IVchunks[0]);
+      if(IV >= value) return true;
+    }
+
+    return false;
 }
 
 //Used for white space removals
@@ -1703,17 +1778,32 @@ bot.on('message', (message) => {
 
       let SERVER_ADMIN = message.guild.roles.find("name", "Admin");
       let BOT_MASTER = message.guild.roles.find("name", "bot master");
+      let LIVEMAP_ADMIN = message.guild.roles.find("name", "Livemap Admin");
 
-      var prices = {"3days": 1.99, "14days": 2.99, "1month": 4.99, "1month-non-recurring": 4.99, "1monthplus": 10.00, "1monthplus-non-recurring": 10.00};
 
-      if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
+      var prices = {"3days": 1.99, "3daysVIP": 2.99, "14days": 2.99, "14daysVIP": 5.99, "1month": 4.99, "1month-non-recurring": 4.99, "1monthVIP": 10, "1month-non-recurringVIP": 10, "1monthplus": 10.00, "1monthplus-non-recurring": 10.00}; //Last two are grandfather old (DB entries)
+
+      if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id) || message.member.roles.has(LIVEMAP_ADMIN.id)) {
         
         mysql.toledoData(function(err, toledoData) {
           if(err) console.log(err);
           else {
               switch(action) {
 
-                  case "total":
+                  case "help":
+                      var livemapHelp = [];
+                      livemapHelp.push(CONFIG.PREFIX+"livemap help - Help Menu");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap show - Show Livemap User entry. Example: "+CONFIG.PREFIX+"show username");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap total - Total active current value.");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap data - Current active data dump.");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap add - Add New Livemap User. Example: "+CONFIG.PREFIX+"add username type expires (Format: YYYY-MM-DD)");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap update - Edit Livemap User. Example: "+CONFIG.PREFIX+"update username expires OR "+CONFIG.PREFIX+"update username type expires");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap delete - Delete Livemap User. Example: "+CONFIG.PREFIX+"delete username.");
+                      livemapHelp.push(CONFIG.PREFIX+"livemap options - Type and Price option listing.");
+                      message.channel.send({embed: richMsg("Help - Livemap", livemapHelp.join("\n"), CONFIG.GOOD)});
+                      break;
+
+                  case "total": //Total active current value
                       var sum = 0;
                       toledoData.forEach(function(item) {
                         sum += prices[item.type];
@@ -1722,8 +1812,7 @@ bot.on('message', (message) => {
                       message.channel.send("Toledo Ohio Sum: "+sum.toFixed(2)+"\n"+"(Based on currently active subscriptions)");              
                       break;
 
-                  case "data":
-
+                  case "data": //Total active data dump
                       var displayData = [];
                       toledoData.forEach(function(item) {
                         displayData.push(item.username+"    **"+item.type+ " ("+prices[item.type]+")**    "+new Date(item.expires).toLocaleDateString());
@@ -1731,7 +1820,102 @@ bot.on('message', (message) => {
                       message.channel.send(displayData.join("\n"));
                       break;
 
+                  case "show": //Show Livemap user data
+                      var username = args[0];
+                      mysql.showLivemapEntry(username, function(err, userRow) {
+                        if(err) { 
+                            console.log(err);
+                            message.channel.send({embed: richMsg("Show - Livemap User Entry", "Unable to obtain entry for "+username+" ErrorCode(1)", CONFIG.ERROR)});
+                          }
+                        else {
+                            if(userRow.length > 0) {
+                              var displayData = [];
+                              displayData.push("Username: "+userRow[0].username);
+                              displayData.push("Type: "+userRow[0].type);
+                              displayData.push("Expires: "+userRow[0].expires);
+                              message.channel.send({embed: richMsg("Show - Livemap User Entry", displayData.join("\n"), CONFIG.GOOD)});
+                            }
+                            else {
+                              message.channel.send({embed: richMsg("Show - Livemap User Entry", "No entry found for "+username+" ErrorCode(2)", CONFIG.ERROR)});
+                            }
+                        }
+                      });
+                      break;
 
+                  case "add": //Add Livemap user data : username type expires
+                      var username = args[0];
+                      var type = args[1];
+                      var expires = args[2];
+                      if(username.length > 0 && type.length > 0 && expires.length > 0) {
+                          mysql.addLivemapEntry(username, type, new Date(expires+" 23:59:59"), function(err, result) {
+                            if(err) console.log(err);
+                            else {
+                              message.channel.send("Livemap User added "+username+" for "+type+" which expires "+expires); 
+                            }
+                          });
+                      }
+                      else {
+                        console.log("U: "+username+" T: "+type+" E: "+expires);
+                        message.channel.send({embed: richMsg("", "Argument issue on add ", CONFIG.ERROR)});
+                      }
+
+                      break;
+
+                  case "update": //Update Livemap user data
+                      if(args.length > 2) // 3 args (username, type, expires)
+                      {
+                        var username = args[0];
+                        var type = args[1];
+                        var expires = args[2];
+                      }
+                      if(args.length == 2) // 2 args (username, expires) //no type change
+                      {
+                        var username = args[0];
+                        var type = null;
+                        var expires = args[1];
+                      }
+
+                      mysql.showLivemapEntry(username, function(err, userRow) {
+                        if(err) {
+                          console.log("Unable to retreive existing Livemap user.")
+                          message.channel.send({embed: richMsg("Update - Livemap User Entry", "Unable to retreive existing Livemap user.", CONFIG.ERROR)});
+                        }
+                        else {
+                            mysql.updateLivemapEntry(username, new Date(expires+" 23:59:59"), type, function(err, result) {
+                            if(err) {
+                              console.log(err)
+                              message.channel.send({embed: richMsg("Update - Livemap User Entry", "Unable to update Livemap User entry.", CONFIG.ERROR)});
+                            }
+                            else {
+                              var displayData = [];
+                              displayData.push("Username: "+username);
+                              displayData.push("Type: "+(type == null ? userRow[0].type+"(unchanged)" : type));
+                              displayData.push("Expires: "+expires+" 23:59:59");
+                              message.channel.send({embed: richMsg("Update - Livemap User Entry", displayData.join("\n"), CONFIG.GOOD)});
+                            }
+                          });
+                        }
+                      });
+                      break;
+
+                  case "delete":
+                      var username = args[0];
+                      mysql.deleteLivemapEntry(username, function(err, result) {
+                        if(err) console.log(err);
+                        else {
+                          message.channel.send({embed: richMsg("Delete - Livemap User Entry", "User "+username+" deleted!", CONFIG.GOOD)});
+                        }
+                      });
+                      break;
+
+                  case "options": //Display livemap price optiosn and types
+                      var displayData = [];
+
+                      for(var i in prices){
+                          displayData.push("Option: "+i+"  Price: "+prices[i]);
+                      }
+                      message.channel.send({embed: richMsg("Type Options and Prices:", displayData.join("\n"), CONFIG.GOODD)});
+                      break;
               }
           }
         });
@@ -1739,10 +1923,7 @@ bot.on('message', (message) => {
       else {
         message.channel.send("ADMIN ONLY COMMAND");
       }
-
     }
-
-
 
     //Mention controller
     if(message.content.startsWith(CONFIG.PREFIX+"mention")) {
@@ -1754,9 +1935,19 @@ bot.on('message', (message) => {
 
       if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id)) {
 
+        //Display mention help menu
+        if(action == "help") {
+          var mentionHelp = [];
+          mentionHelp.push(CONFIG.PREFIX+"mention showall");
+          mentionHelp.push(CONFIG.PREFIX+"mention add name type mentionCode Example: "+CONFIG.PREFIX+"mention add Ivysaur pokemon/raid <@&mentioncode>");
+          mentionHelp.push(CONFIG.PREFIX+"mention show name Example: "+CONFIG.PREFIX+"mention show Ivysaur");
+          mentionHelp.push(CONFIG.PREFIX+"mention remove name Example: "+CONFIG.PREFIX+"mention remove Ivysaur");
+          message.channel.send({embed: richMsg("", mentionHelp.join("\n"), CONFIG.GOOD)});
+        }
+
+
         //Display all mentions that currently exist
         if(action == "showall") {
-
           var mentions = [];
           mysql.getAllPokemonMentions(function(err, mention_results) {
             if(err) console.log(err);
@@ -1800,7 +1991,10 @@ bot.on('message', (message) => {
             if(err) console.log(err);
             else {
               switch(action) {
-                  case "add": // ?men add name type mention
+                  case "help":
+                      var mentionHelp = [];
+                      break;
+                  case "add": // ?mention add name type mention
                         if(args.length != 2) {
                           console.log("Invalid # remaining args");
                           message.channel.send({embed: richMsg("", "Invalid # remaining args", CONFIG.ERROR)});
@@ -1827,7 +2021,7 @@ bot.on('message', (message) => {
                           });
                         }
                       break;
-                  case "remove":
+                  case "remove": //?mention remove name
                         mysql.getMentionByName(name, function(err, mention_result) {
                           if(err) console.log(err);
                           else {
@@ -1843,7 +2037,7 @@ bot.on('message', (message) => {
 
                         //Remove entry
                       break;
-                  case "show": //?men show name
+                  case "show": //?mention show name
                       mysql.getMentionByName(name, function(err, mention_result) {
                         if(err) console.log(err);
                         else {
@@ -1864,6 +2058,21 @@ bot.on('message', (message) => {
       else {
         message.channel.send({embed: richMsg("", "ADMIN ONLY COMMAND", CONFIG.ERROR)});
       }
+    }
+
+
+    if(message.content.startsWith(CONFIG.PREFIX+"mem")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var memberValue = args[0];
+      var member = null;
+      console.log(memberValue);
+
+      getMember(bot, memberValue, function(resultMember) { member = resultMember; });
+
+      console.log(member);
+
+      //message.channel.send(member.id);
+      //message.channel.send(member.username);
     }
 
 
@@ -1906,6 +2115,31 @@ bot.on('message', (message) => {
                     });
             }
         }
+    }
+
+
+    //Fun stuff
+    if(message.content.startsWith(CONFIG.PREFIX + "spawns")) {
+      var args = message.content.split(/\s+/g).slice(1);
+      var action = args[0];
+
+      let BOT_MASTER = message.guild.roles.find("name", "bot master");
+      if(message.member.roles.has(BOT_MASTER.id)) {
+        switch (action) {
+          case "stop":
+              message.channel.send({embed: richMsg("Spawner", "Stopping all spawning.", CONFIG.GOOD)});
+              break;
+          case "start":
+              message.channel.send({embed: richMsg("Spawner", "Starting spawners.", CONFIG.GOOD)});
+              break;
+          case "pokemon":
+              message.channel.send({embed: richMsg("Spawner", "Starting to spawn more "+args[1])});
+              break;
+        }
+      }
+      else {
+        message.channel.send({embed: richMsg("", "ADMIN ONLY COMMAND", CONFIG.ERROR)});
+      }
     }
 
 

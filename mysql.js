@@ -161,7 +161,7 @@ exports.removeDeadRangeUser = function(userid, callback) {
     });
 }
 
-//Mentions Queries
+// mentions Queries
 exports.addMentionsEntry = function(pid, pname, type, mention, callback) {
     var dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
     conn.query("INSERT INTO `mentions` (pid, pname, type, mention, created, updated) VALUES (?,?,?,?,?,?)", [pid, pname, type, mention, dateNow, dateNow], function(err, result) {
@@ -201,12 +201,7 @@ exports.deleteMentionEntry = function(pid, callback) {
 
 
 
-
-//Live Map Queries
-
-
-
-
+// pokemonlist table
 //Pokemon List Queries
 //Get all PokemonList entries
 exports.getPokemonAllEntries = function(callback) {
@@ -352,8 +347,7 @@ exports.dailyDMCount = function(type, name, value = null, callback) {
 }
 
 
-
-//Toledo
+// toledoohio table 
 exports.toledoData = function(callback) {
     conn.query("SELECT * FROM `toledoohio` WHERE expires > NOW() ORDER BY expires ASC", function(err, result, fields) {
         if(err) callback(err, null);
@@ -361,3 +355,40 @@ exports.toledoData = function(callback) {
     });
 }
 
+exports.showLivemapEntry = function(username, callback) {
+    conn.query("SELECT * FROM `toledoohio` WHERE username=?", [username], function(err, result, fields) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+exports.addLivemapEntry = function(username, type, expires, callback) {
+    conn.query("INSERT INTO `toledoohio` (username, userid, type, email, expires) VALUES (?, ?, ?, ?, ?)", [username, 0, type, "", expires], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Update Livemap Entry (username (where), type, expires)
+exports.updateLivemapEntry = function(username, expires, type = null, callback) {
+    if(type != null) { //Type change
+        conn.query("UPDATE `toledoohio` SET `type` = ?, `expires` = ? WHERE `username`=?", [type, expires, username], function(err, result) {
+            if(err) callback(err, null);
+            else callback(null, result);
+        });
+    }
+    else { //No Type change, just expiration
+        conn.query("UPDATE `toledoohio` SET `expires` = ? WHERE `username`=?", [expires, username], function(err, result) {
+            if(err) callback(err, null);
+            else callback(null, result);
+        });
+    }
+}
+
+//Delete entry
+exports.deleteLivemapEntry = function(username, callback) {
+    conn.query("DELETE FROM `toledoohio` WHERE `username`=?", [username], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
