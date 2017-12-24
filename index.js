@@ -664,6 +664,11 @@ function loadRaidMentions()
 }
 
 
+function getMentionID(mention) {
+  return mention.match(/\d+/);
+}
+
+
 //Testing Roles
 //Check if message.member has a certain string role.
 function messageUserHasRole(message, role) {
@@ -1797,7 +1802,6 @@ bot.on('message', (message) => {
                       livemapHelp.push(CONFIG.PREFIX+"livemap total - Total active current value.");
                       livemapHelp.push(CONFIG.PREFIX+"livemap data - Current active data dump.");
                       livemapHelp.push(CONFIG.PREFIX+"livemap add - Add New Livemap User. Example: "+CONFIG.PREFIX+"add username type expires (Format: YYYY-MM-DD)");
-                      livemapHelp.push(CONFIG.PREFIX+"livemap update - Edit Livemap User. Example: "+CONFIG.PREFIX+"update username expires OR "+CONFIG.PREFIX+"update username type expires");
                       livemapHelp.push(CONFIG.PREFIX+"livemap delete - Delete Livemap User. Example: "+CONFIG.PREFIX+"delete username.");
                       livemapHelp.push(CONFIG.PREFIX+"livemap options - Type and Price option listing.");
                       message.channel.send({embed: richMsg("Help - Livemap", livemapHelp.join("\n"), CONFIG.GOOD)});
@@ -1821,93 +1825,87 @@ bot.on('message', (message) => {
                       break;
 
                   case "show": //Show Livemap user data
-                      var username = args[0];
-                      mysql.showLivemapEntry(username, function(err, userRow) {
-                        if(err) { 
-                            console.log(err);
-                            message.channel.send({embed: richMsg("Show - Livemap User Entry", "Unable to obtain entry for "+username+" ErrorCode(1)", CONFIG.ERROR)});
+                      var userMention = args[0];
+                      var userid = getMentionID(userMention);
+                      bot.fetchUser(userid).then(function(user) {
+                        mysql.showLivemapEntry(user.id, function(err, userRow) {
+                          if(err) { 
+                              message.channel.send({embed: richMsg("Show - Livemap User Entry", "Unable to obtain entry for "+user.username+" ErrorCode(1)", CONFIG.ERROR)});
+                            }
+                          else {
+                              if(userRow.length > 0) {
+                                var displayData = [];
+                                displayData.push("Username: "+userRow[0].username);
+                                displayData.push("UserID: "+userRow[0].userid);
+                                displayData.push("Type: "+userRow[0].type);
+                                displayData.push("Expires: "+userRow[0].expires);
+                                message.channel.send({embed: richMsg("Show - Livemap User Entry", displayData.join("\n"), CONFIG.GOOD)});
+                              }
+                              else {
+                                message.channel.send({embed: richMsg("Show - Livemap User Entry", "No entry found for "+user.username+" ErrorCode(2)", CONFIG.ERROR)});
+                              }
                           }
-                        else {
-                            if(userRow.length > 0) {
-                              var displayData = [];
-                              displayData.push("Username: "+userRow[0].username);
-                              displayData.push("Type: "+userRow[0].type);
-                              displayData.push("Expires: "+userRow[0].expires);
-                              message.channel.send({embed: richMsg("Show - Livemap User Entry", displayData.join("\n"), CONFIG.GOOD)});
-                            }
-                            else {
-                              message.channel.send({embed: richMsg("Show - Livemap User Entry", "No entry found for "+username+" ErrorCode(2)", CONFIG.ERROR)});
-                            }
-                        }
+                        });       
                       });
                       break;
-
                   case "add": //Add Livemap user data : username type expires
-                      var username = args[0];
+                      var userMention = args[0]; //User Mention: @Sheep
                       var type = args[1];
                       var expires = args[2];
-                      if(username.length > 0 && type.length > 0 && expires.length > 0) {
-                          mysql.addLivemapEntry(username, type, new Date(expires+" 23:59:59"), function(err, result) {
-                            if(err) console.log(err);
-                            else {
-                              message.channel.send("Livemap User added "+username+" for "+type+" which expires "+expires); 
-                            }
-                          });
-                      }
-                      else {
-                        console.log("U: "+username+" T: "+type+" E: "+expires);
-                        message.channel.send({embed: richMsg("", "Argument issue on add ", CONFIG.ERROR)});
-                      }
 
-                      break;
+                      var userid = getMentionID(userMention);
+                      var guild = bot.guilds.get(CONFIG.GUILD);
+                      bot.fetchUser(userid).then(function(user) { 
+                        if(userid.length > 0 && type.length > 0 && expires.length > 0) {
+                            
+                            //Delete old entries
+                            mysql.deleteLivemapEntry(userid, function(err, result) {
+                              if(err) { dlog(err); }
+                            });                     
 
-                  case "update": //Update Livemap user data
-                      if(args.length > 2) // 3 args (username, type, expires)
-                      {
-                        var username = args[0];
-                        var type = args[1];
-                        var expires = args[2];
-                      }
-                      if(args.length == 2) // 2 args (username, expires) //no type change
-                      {
-                        var username = args[0];
-                        var type = null;
-                        var expires = args[1];
-                      }
+                            //Add new Entry
+                            mysql.addLivemapEntry(user.username, user.id, type, new Date(expires+" 23:59:59"), function(err, result) {
+                              if(err) dlog(err);
+                              else {
+                                message.channel.send("Livemap User added " + user.username + " for " + type + " which expires " + expires); 
+                              }
+                            });
 
-                      mysql.showLivemapEntry(username, function(err, userRow) {
-                        if(err) {
-                          console.log("Unable to retreive existing Livemap user.")
-                          message.channel.send({embed: richMsg("Update - Livemap User Entry", "Unable to retreive existing Livemap user.", CONFIG.ERROR)});
+                            //Add Livemap role
+                            var guild = bot.guilds.get(CONFIG.GUILD);
+                            var livemapRole = guild.roles.find("name", "Livemap");
+                            guild.fetchMember(user).then(function(member) {
+                              member.addRole(livemapRole);
+                              message.channel.send("Added Livemap role to "+member.user.username);
+                            });
                         }
-                        else {
-                            mysql.updateLivemapEntry(username, new Date(expires+" 23:59:59"), type, function(err, result) {
-                            if(err) {
-                              console.log(err)
-                              message.channel.send({embed: richMsg("Update - Livemap User Entry", "Unable to update Livemap User entry.", CONFIG.ERROR)});
-                            }
-                            else {
-                              var displayData = [];
-                              displayData.push("Username: "+username);
-                              displayData.push("Type: "+(type == null ? userRow[0].type+"(unchanged)" : type));
-                              displayData.push("Expires: "+expires+" 23:59:59");
-                              message.channel.send({embed: richMsg("Update - Livemap User Entry", displayData.join("\n"), CONFIG.GOOD)});
-                            }
-                          });
-                        }
+                      }).catch(function(error) {
+                        dlog("Livemap add error " + userid + "  " + userMention + " " + error)
                       });
-                      break;
-
+                      break;            
                   case "delete":
-                      var username = args[0];
-                      mysql.deleteLivemapEntry(username, function(err, result) {
-                        if(err) console.log(err);
-                        else {
-                          message.channel.send({embed: richMsg("Delete - Livemap User Entry", "User "+username+" deleted!", CONFIG.GOOD)});
-                        }
+                      var userMention = args[0];
+                      var userid = getMentionID(userMention);
+
+                      bot.fetchUser(userid).then(function(user) {
+                        //Delete entries
+                        mysql.deleteLivemapEntry(userid, function(err, result) {
+                          if(err) console.log(err);
+                          else {
+                            message.channel.send({embed: richMsg("Delete - Livemap User Entry", "User " + user.username+ " deleted!", CONFIG.GOOD)});
+                          }
+                        });
+
+                        //Delete role
+                        var guild = bot.guilds.get(CONFIG.GUILD);
+                        var livemapRole = guild.roles.find("name", "Livemap");
+
+                        guild.fetchMember(user).then(function(member) {
+                          member.removeRole(livemapRole);
+                          message.channel.send("Removed Livemap role from user "+user.username);
+                        });
                       });
                       break;
-
                   case "options": //Display livemap price optiosn and types
                       var displayData = [];
 

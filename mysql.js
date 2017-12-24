@@ -355,15 +355,15 @@ exports.toledoData = function(callback) {
     });
 }
 
-exports.showLivemapEntry = function(username, callback) {
-    conn.query("SELECT * FROM `toledoohio` WHERE username=?", [username], function(err, result, fields) {
+exports.showLivemapEntry = function(userid, callback) {
+    conn.query("SELECT * FROM `toledoohio` WHERE userid=?", [userid], function(err, result, fields) {
         if(err) callback(err, null);
         else callback(null, result);
     });
 }
 
-exports.addLivemapEntry = function(username, type, expires, callback) {
-    conn.query("INSERT INTO `toledoohio` (username, userid, type, email, expires) VALUES (?, ?, ?, ?, ?)", [username, 0, type, "", expires], function(err, result) {
+exports.addLivemapEntry = function(username, userid, type, expires, callback) {
+    conn.query("INSERT INTO `toledoohio` (username, userid, type, email, expires) VALUES (?, ?, ?, ?, ?)", [username, userid, type, "", expires], function(err, result) {
         if(err) callback(err, null);
         else callback(null, result);
     });
@@ -385,9 +385,9 @@ exports.updateLivemapEntry = function(username, expires, type = null, callback) 
     }
 }
 
-//Delete entry
-exports.deleteLivemapEntry = function(username, callback) {
-    conn.query("DELETE FROM `toledoohio` WHERE `username`=?", [username], function(err, result) {
+//Delete entry by userid
+exports.deleteLivemapEntry = function(userid, callback) {
+    conn.query("DELETE FROM `toledoohio` WHERE `userid`=?", [userid], function(err, result) {
         if(err) callback(err, null);
         else callback(null, result);
     });

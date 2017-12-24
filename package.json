@@ -14,6 +14,6 @@
     "jquery": "^3.2.1",
     "mysql": "^2.14.1",
     "mysqljs": "0.0.2-security",
-    "async": "^2.5.0",
+    "async": "^2.5.0"
   }
 }
