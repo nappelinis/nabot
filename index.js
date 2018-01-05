@@ -9,10 +9,6 @@ const mysql = require('./mysql.js');
 const TOKEN = CONFIG.TOKEN;
 const PREFIX = CONFIG.PREFIX;
 
-//For Command structure
-var pm = loadPokemonMentions();
-var rm = loadRaidMentions();
-
 const onlineStatuses = ['online', 'idle'];
 
 if (bot.login(CONFIG.TOKEN)) {
@@ -318,6 +314,9 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                     var descriptionText = message.embeds[0].description;
                     var descriptionLines = descriptionText.split("\n");
                     var noIV_Description = descriptionLines[2];
+
+                    console.log(message.embeds[0].title.split(/\s+/g)[0]);
+                    console.log(pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]]);
 
                     var currentPokemonMention = (typeof pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]] === 'undefined' ? "" : pokemon_mentions[message.embeds[0].title.split(/\s+/g)[0]]);
 
@@ -703,7 +702,7 @@ function getGuildMentions(callback) {
               //Pokemon Mentions
               if(capitalizeFirstLetter(guildRole.name) == activePokemon.name) 
               {
-                pokemonGuildMentions[guildRole.name.toString()] = "<&"+guildRole.id+">";
+                pokemonGuildMentions[capitalizeFirstLetter(guildRole.name.toString())] = "<@&"+guildRole.id+">";
                 //console.log("Found Pokemon "+guildRole.name+" with "+guildRole.id);
                 found = true;
               }
@@ -711,7 +710,7 @@ function getGuildMentions(callback) {
               //Raid Mentions
               if(capitalizeFirstLetter(guildRole.name) == activePokemon.name+'-r')
               {
-                raidGuildMentions[guildRole.name] = "<&"+guildRole.id+">";
+                raidGuildMentions[capitalizeFirstLetter(guildRole.name)] = "<@&"+guildRole.id+">";
                 //console.log("Found Raid "+guildRole.name+" with "+guildRole.id);
                 found = true;
               }
