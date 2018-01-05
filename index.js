@@ -10,8 +10,8 @@ const TOKEN = CONFIG.TOKEN;
 const PREFIX = CONFIG.PREFIX;
 
 //For Command structure
-const pm = loadPokemonMentions();
-const rm = loadRaidMentions();
+var pm = loadPokemonMentions();
+var rm = loadRaidMentions();
 
 const onlineStatuses = ['online', 'idle'];
 
@@ -33,8 +33,15 @@ var raids_lmi = lastMessageID();
 
 var guild_members = lastMessageID();
 
+//NEW MENTIONS - Built from Guild Roles
+var pokemonMentions = lastMessageID();
+var raidMentions = lastMessageID();
+
 //Main Bot control
 bot.on('ready', () => {
+
+    //Run this to get all guild roles setup
+    getGuildMentions(function(data) {});
 
     //Server data
     var guild = bot.guilds.get(CONFIG.GUILD);
@@ -531,16 +538,6 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
 
                                                           //Check if user has required roles
                                                           userHasRole(result.userid, aRole, function(hasRole) { ivRole = hasRole; });
-
-                                                          //console.log(aRole+" "+result.userid+" "+result.username+" "+ivRole);
-
-                                                          if(ivRole === true)
-                                                          {
-                                                            console.log("Success: User "+result.username+" has required "+aRole+" role!");                          
-                                                          }
-                                                          else {
-                                                            console.log("No IV for you: "+result.username+" does not have required "+aRole+" role!");
-                                                          }
                                                         });
 
 
@@ -652,7 +649,8 @@ function loadPokemonsList()
 */
 function loadPokemonMentions()
 {
-    return require('./rares_mentions.json');
+    return pokemonMentions.get();
+    //return require('./rares_mentions.json');
 }
 
 /*
@@ -660,13 +658,107 @@ function loadPokemonMentions()
 */
 function loadRaidMentions()
 {
-    return require('./raids_mentions.json');
+    return raidMentions.get();
+    //return require('./raids_mentions.json');
 }
 
 
 function getMentionID(mention) {
   return mention.match(/\d+/);
 }
+
+//Goal:
+//Take server mentions
+//Compare them to pokemon in db (pokemonlist)
+//Generate pm and rm data
+function getGuildMentions(callback) {
+
+  //Return these json chunks
+  var pokemonGuildMentions = {};
+  var raidGuildMentions = {};
+  var notFound = [];
+  var data = [];
+
+  //Get Guild Roles
+  var guild = bot.guilds.get(CONFIG.GUILD);
+  var guildRoles = guild.roles;
+
+  //List of active Pokemon
+  var activePokemons = null;
+
+  //Get Active Pokemon List
+  mysql.getPokemonActiveEntries(function(err, result) {
+    if(err) dlog("Error: mysql.getPokemonActiveEntries failed!");
+    else {
+      if(result.length > 0) {
+
+        var guildRolesCount = 0;
+
+        //Loop over guild roles
+        guildRoles.forEach(function(guildRole) {
+
+          var found = false;
+          result.forEach(function(activePokemon) {
+
+              //Pokemon Mentions
+              if(capitalizeFirstLetter(guildRole.name) == activePokemon.name) 
+              {
+                pokemonGuildMentions[guildRole.name.toString()] = "<&"+guildRole.id+">";
+                //console.log("Found Pokemon "+guildRole.name+" with "+guildRole.id);
+                found = true;
+              }
+
+              //Raid Mentions
+              if(capitalizeFirstLetter(guildRole.name) == activePokemon.name+'-r')
+              {
+                raidGuildMentions[guildRole.name] = "<&"+guildRole.id+">";
+                //console.log("Found Raid "+guildRole.name+" with "+guildRole.id);
+                found = true;
+              }
+
+          });
+
+          guildRolesCount++;
+
+          if(!found) 
+          {
+            if(guildRole.name != "@everyone")
+              notFound.push(guildRole.name);
+          }
+
+        });
+
+/*        console.log("Parsed "+guildRolesCount);
+        console.log("Not Found: "+notFound.join(", "));
+        console.log(pokemonGuildMentions);
+        console.log(raidGuildMentions);*/
+
+        //Set them
+        pokemonMentions.set(pokemonGuildMentions);
+        raidMentions.set(raidGuildMentions);
+
+/*        console.log(pokemonMentions.get());
+        console.log(raidMentions.get());*/
+
+        //Send data to channel
+        data.push("Parsed: "+guildRolesCount+" Roles");
+        data.push(" ");
+        data.push("Role not found: "+notFound.join(", "));
+        callback(data);
+
+      }
+      else {
+        dlog("Error: Empty list returned for mysqlPokemonActiveEntries!");
+      }
+    }
+  });
+
+
+
+
+
+}
+
 
 
 //Testing Roles
@@ -886,15 +978,17 @@ bot.on('message', (message) => {
     // Command: ?RM
     // Raid Mentions - Command
     if (message.content.startsWith(CONFIG.PREFIX + "rm") && CONFIG.RM) {   
-        var rm = loadRaidMentions();
+        //OLD JSON
+        //var rm = loadRaidMentions();
+
+        //NEW GUILD ROLES
+        var rm = raidMentions.get();
         var msg = "**Example:**\nTo add type: **.iam snorlax-r** \nTo remove type: **.iamnot snorlax-r**\n\n";
         for (var key in rm) {
             if (rm.hasOwnProperty(key)) {
                 if (rm[key].length > 0) msg += key + ", ";
             }
         }
-
-        //Remove trailing ", "
         msg = msg.slice(0, -2);
         message.channel.send({ embed: richMsg("Raid Mentions List ( "+CONFIG.PREFIX+"rm )", msg, CONFIG.GOOD)})
     }
@@ -904,19 +998,31 @@ bot.on('message', (message) => {
     // Command: ?PM
     //Pokemon Mentions - Command
     if (message.content.startsWith(CONFIG.PREFIX + "pm") && CONFIG.PM) {
-        var pm = loadPokemonMentions();
+       
+        //OLD JSON
+        //var pm = loadPokemonMentions();
+
+        //NEW GUILD ROLES
+        var pm = pokemonMentions.get();
         var msg = "**Example:**\nTo add type: **.iam snorlax** \nTo remove type: **.iamnot snorlax**\n\n";
         for (var key in pm) {
             if (pm.hasOwnProperty(key)) {
                 if (pm[key].length > 0) msg += key + ", ";
             }
         }
-
-        //Remove trailing ", "
         msg = msg.slice(0, -2);
-
         message.channel.send({ embed: richMsg("Pokemon Mentions List ( "+CONFIG.PREFIX+"pm )", msg, CONFIG.GOOD)})
     }
+
+    //Pokemon mention based on database vs discord roles
+    if(message.content.startsWith(CONFIG.PREFIX + "updateRoles")) 
+    {
+      //TODO
+      getGuildMentions(function(data) {
+        message.channel.send({ embed: richMsg("Ditto Guild Roles", data.join("\n"), CONFIG.GOOD)})
+      });
+    }
+
 
     if(message.content.startsWith(CONFIG.PREFIX + "howto") && CONFIG.HOWTO) {
             var commandspam = bot.channels.get(CONFIG.COMMANDSPAM);
@@ -2207,3 +2313,34 @@ bot.on('message', (message) => {
         }
     }
 });
+
+
+
+/*
+        var pokemons = pokemonMentions.get();
+        var raids = raidMentions.get();
+
+        console.log(pokemons);
+
+
+        //Pokemon Mentions
+        var msg = "**Example:**\nTo add type: **.iam snorlax** \nTo remove type: **.iamnot snorlax**\n\n";
+        for (var key in pokemons) {
+            if (pokemons.hasOwnProperty(key)) {
+                if (pokemons[key].length > 0) msg += key + ", ";
+            }
+        }
+        msg = msg.slice(0, -2);
+        message.channel.send({ embed: richMsg("Pokemon Mentions List ( "+CONFIG.PREFIX+"pm )", msg, CONFIG.GOOD)})
+
+        //Reset
+        msg = "**Example:**\nTo add type: **.iam snorlax-r** \nTo remove type: **.iamnot snorlax-r**\n\n";
+
+        //Raid mentions
+        for (var key in raids) {
+            if (raids.hasOwnProperty(key)) {
+                if (raids[key].length > 0) msg += key + ", ";
+            }
+        }
+        msg = msg.slice(0, -2);
+        message.channel.send({ embed: richMsg("Raid Mentions List ( "+CONFIG.PREFIX+"rm )", msg, CONFIG.GOOD)})*/
