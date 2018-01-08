@@ -81,6 +81,12 @@ bot.on('ready', () => {
             function(callback) { if(CONFIG.RUN_RAIDS) { run_raid_bot(la_raids, raid_channels, raids_lmi); } callback(); }
         ]);
     }, CONFIG.RUN_EVERY_X_SECONDS * 1000);
+
+    setInterval(function() {
+      async.series([
+        function(callback) { if(CONFIG.AUTO_REMOVE_LIVEMAP) { removeExpiredLivemap(); } callback(); }
+      ]);
+    }, 86400);
 });
 
 
@@ -93,7 +99,7 @@ bot.on('ready', () => {
 function run_raid_bot(la_raids, output_channels, raids_lmi) {
 
     //Pokemon Mentions for 'Rhydon Boss!'
-    var pokemon_list = loadPokemonsList();
+    var pokemon_list = loadPokemonsList(); //Not used
     var raids_mentions = loadRaidMentions();
 
     //Default pull of last message id
@@ -261,7 +267,7 @@ function run_raid_bot(la_raids, output_channels, raids_lmi) {
 //Post back mention code from rares_mentions.json to dest_chan
 function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type) {
 
-    var pokemon_list = loadPokemonsList();
+    var pokemon_list = loadPokemonsList(); //Not used
     var pokemon_mentions = loadPokemonMentions();
     var perfect_IV_chan = bot.channels.get(CONFIG.PERFECT_IV_CHAN);
     var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);
@@ -613,7 +619,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
         .catch(console.error);
 }
 
-// lastMessageID
+// lastMessageID - VERY IMPORTANT
 //  -- Getter
 //  -- Setter
 function lastMessageID() {
@@ -626,6 +632,7 @@ function lastMessageID() {
 }
 
 //Get Pokemon Name by ID (callback)
+//NOT USED
 function getPokemonByID(pokemon_list, id, callback) {
     callback(pokemon_list[id]);
 }
@@ -643,22 +650,16 @@ function loadPokemonsList()
     return require('./pokemon.json');
 }
 
-/*
-/ Loads rares_mentions.json
-*/
+//Load Pokemon Mentions via Discord Guild Roles
 function loadPokemonMentions()
 {
     return pokemonMentions.get();
-    //return require('./rares_mentions.json');
 }
 
-/*
-/ Loads raids_mentions.json
-*/
+//Load Raid Mentions via Discord Guild Roles
 function loadRaidMentions()
 {
     return raidMentions.get();
-    //return require('./raids_mentions.json');
 }
 
 
@@ -751,14 +752,61 @@ function getGuildMentions(callback) {
       }
     }
   });
-
-
-
-
-
 }
 
+//Go through livemap users and remove outdated entries
+function removeExpiredLivemap() {
 
+  mysql.getExpiredLivemap(function(err, result) {
+    if(err) console.log(err);
+    else {
+        if(result.length > 0) {
+          result.forEach(function(livemapUser) {
+
+            //Remove expired entry
+            mysql.deleteLivemapEntryByID(livemapUser.ID, function(err, result) {
+              if(err) dlog(err);
+              else {
+                //Check for more entries for that person
+                //If there aren't anymore
+                // - Message the user that they have expired
+                // - Post message to dlog (for Livemap Admin)
+                // - Remove livemap role from user
+                mysql.showLivemapEntry(livemapUser.userid, function(err, result) {
+                  if(err) dlog(err);
+                  else {
+                    if(result.length == 0) //Found no other entry for user
+                    {
+                      //Get user
+                      bot.fetchUser(livemapUser.userid).then(function(user) {
+
+                          //Post message to dlog (for Livemap Admin)
+                          dlog("Removed Livemap DB for "+livemapUser.username);                         
+
+                          //Remove livemap role from user
+                          var guild = bot.guilds.get(CONFIG.GUILD);
+                          var livemapRole = guild.roles.find("name", "Livemap");
+                          guild.fetchMember(user).then(function(member) {
+                              //Remove livemap role
+                              member.removeRole(livemapRole);
+                              //Message user
+                              member.send("Your Livemap Role expired and you have been automatically removed. If you have an ongoing subscription, please message Livemap Admin with a screenshot of your continued subscription including the new expiration date.");
+                              dlog("Removed Livemap Role from "+livemapUser.username);
+                          });
+                      });
+                    }
+                  }
+                });
+              }
+            });
+          });
+        }
+        else {
+          dlog("Did not find anybody to remove from Livemap.");
+        }
+      }
+  });
+}
 
 //Testing Roles
 //Check if message.member has a certain string role.
@@ -1674,7 +1722,6 @@ bot.on('message', (message) => {
     //Live map
 
 
-
     //Alive/Prune testing
     //Unfinished
     if(message.content.startsWith(CONFIG.PREFIX+"check")) {
@@ -1891,7 +1938,7 @@ bot.on('message', (message) => {
       let LIVEMAP_ADMIN = message.guild.roles.find("name", "Livemap Admin");
 
 
-      var prices = {"3days": 1.99, "3daysVIP": 2.99, "14days": 2.99, "14daysVIP": 5.99, "1month": 4.99, "1month-non-recurring": 4.99, "1monthVIP": 10, "1month-non-recurringVIP": 10, "1monthplus": 10.00, "1monthplus-non-recurring": 10.00}; //Last two are grandfather old (DB entries)
+      var prices = {"contest": 0, "forever": 0, "3days": 1.99, "3daysVIP": 2.99, "14days": 2.99, "14daysVIP": 5.99, "1month": 4.99, "1month-non-recurring": 4.99, "1monthVIP": 10, "1month-non-recurringVIP": 10, "1monthplus": 10.00, "1monthplus-non-recurring": 10.00}; //Last two are grandfather old (DB entries)
 
       if(message.member.roles.has(SERVER_ADMIN.id) || message.member.roles.has(BOT_MASTER.id) || message.member.roles.has(LIVEMAP_ADMIN.id)) {
         

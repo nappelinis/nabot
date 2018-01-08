@@ -385,9 +385,27 @@ exports.updateLivemapEntry = function(username, expires, type = null, callback) 
     }
 }
 
+//Get expired livemap entry to be removed
+exports.getExpiredLivemap = function(callback) {
+    var dateNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    conn.query("SELECT * FROM `toledoohio` WHERE `expires` < ? AND `type` != ?", [dateNow, "forever"], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+
 //Delete entry by userid
 exports.deleteLivemapEntry = function(userid, callback) {
     conn.query("DELETE FROM `toledoohio` WHERE `userid`=?", [userid], function(err, result) {
+        if(err) callback(err, null);
+        else callback(null, result);
+    });
+}
+
+//Delete entry by id
+exports.deleteLivemapEntryByID = function(id, callback) {
+    conn.query("DELETE FROM `toledoohio` WHERE `id`=?", [id], function(err, result) {
         if(err) callback(err, null);
         else callback(null, result);
     });
