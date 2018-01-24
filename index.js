@@ -86,7 +86,7 @@ bot.on('ready', () => {
       async.series([
         function(callback) { if(CONFIG.AUTO_REMOVE_LIVEMAP) { removeExpiredLivemap(); } callback(); }
       ]);
-    }, 86400);
+    }, 86400000);
 });
 
 
@@ -99,7 +99,6 @@ bot.on('ready', () => {
 function run_raid_bot(la_raids, output_channels, raids_lmi) {
 
     //Pokemon Mentions for 'Rhydon Boss!'
-    var pokemon_list = loadPokemonsList(); //Not used
     var raids_mentions = loadRaidMentions();
 
     //Default pull of last message id
@@ -156,7 +155,7 @@ function run_raid_bot(la_raids, output_channels, raids_lmi) {
                           console.log('Current Raid Mon: ' + current_mon);
 
                           //Get current_mention based on current_mon
-                          var current_mention = raids_mentions[current_mon];
+                          var current_mention = raids_mentions[current_mon+"-r"];
 
                           //Build message to send
                           var msg = title + "\n" + description + "\n" + url + "\n" + current_mention + "\n\n";
@@ -267,7 +266,6 @@ function run_raid_bot(la_raids, output_channels, raids_lmi) {
 //Post back mention code from rares_mentions.json to dest_chan
 function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type) {
 
-    var pokemon_list = loadPokemonsList(); //Not used
     var pokemon_mentions = loadPokemonMentions();
     var perfect_IV_chan = bot.channels.get(CONFIG.PERFECT_IV_CHAN);
     var perfect_LVL_chan = bot.channels.get(CONFIG.PERFECT_LVL_CHAN);
@@ -475,7 +473,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                 ////////////////////////////
                                 // Perfect LEVEL check
                                 ////////////////////////////
-                                var perfect_reg = new RegExp(/LVL: 3\d{1}/, 'g');                    
+                                var perfect_reg = new RegExp(/Lv: 3\d{1}/, 'g');                    
                                 var perfect_matches = perfect_reg.test(currentMon.msgDescription);
                                 var IV_check = checkIV(currentMon.msgDescription, 1, 90, "equalbigger"); //Check 70=+ IV 
                                 var IV_check100 = checkIV(currentMon.msgDescription, 1, "100%", "equal");
@@ -516,6 +514,12 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                     var url = currentMon.msgUrl;
                                     var coordsString = url.split("=").splice(1);
                                     var coords = coordsString[0].split(",");
+                                    // "L28 67% Carvanha! (3.83km away)"
+                                    var level_reg = new RegExp(/Lv: \d+/, 'g');
+                                    var lvl_matches = level_reg.exec(currentMon.msgDescription); //livemap header
+                                    var IV_reg = new RegExp(/\d+\.?\d?%/, 'g');
+                                    var IV_matches = IV_reg.exec(currentMon.msgDescription); //livemap header
+                                    var IV_header = (lvl_matches.length > 0 ? lvl_matches[0] : "") + " " + (IV_matches.length > 0 ? IV_matches[0] : "");
 
                                     //Get users coods
                                     mysql.getActiveRanges(function(err, results) {
@@ -557,7 +561,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.RARES_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg((ivRole ? IV_header+" "+currentMon.name+" ("+round(dist, 2)+"km)" : currentMon.name + " within range! (" + round(dist, 2) + "km)"), (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "RARESRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -567,7 +571,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.POKEMON_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else {
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg((ivRole ? IV_header+" "+currentMon.name+" ("+round(dist, 2)+"km)" : currentMon.name + " within range! (" + round(dist, 2) + "km)"), (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "POKEMONRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -577,7 +581,7 @@ function run_bot(source_chan, dest_chan, source_lastMessage, source_limit, type)
                                                                     if(CONFIG.STARTERS_DM) {
                                                                         if(CONFIG.TESTING === true) console.log("DM disabled.");
                                                                         else { 
-                                                                          dm.send({embed: richMsg(currentMon.name + " within range! (Distance: " + round(dist, 2) + " km)", (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
+                                                                          dm.send({embed: richMsg((ivRole ? IV_header+" "+currentMon.name+" ("+round(dist, 2)+"km)" : currentMon.name + " within range! (" + round(dist, 2) + "km)"), (ivRole ? currentMon.msgDescription : currentMon.noIV_Description), CONFIG.GOOD, currentMon.msgUrl, currentMon.gmaps)});
                                                                           mysql.dailyDMCount("DM", "STARTERSRANGE", 1, function(err, result) { if(err) console.log(err); });
                                                                         }
                                                                     }
@@ -631,24 +635,12 @@ function lastMessageID() {
     };
 }
 
-//Get Pokemon Name by ID (callback)
-//NOT USED
-function getPokemonByID(pokemon_list, id, callback) {
-    callback(pokemon_list[id]);
-}
 
 //Get Pokemon Mention by Name (callback)
 function getPokemonMention(pokemon_mentions, name, callback) {
     callback(pokemon_mentions[name]);
 }
 
-/*
-/ Loads pokemon.json
-*/
-function loadPokemonsList()
-{
-    return require('./pokemon.json');
-}
 
 //Load Pokemon Mentions via Discord Guild Roles
 function loadPokemonMentions()
